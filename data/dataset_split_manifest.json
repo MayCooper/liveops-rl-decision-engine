@@ -1,0 +1,19 @@
+{
+  "split_key": "player_id",
+  "seed": 2026,
+  "players": {
+    "train": 2240,
+    "validation": 480,
+    "test": 480
+  },
+  "rows": {
+    "train": 20478,
+    "validation": 4456,
+    "test": 4359
+  },
+  "leakage_checks": {
+    "train_validation_overlap": 0,
+    "train_test_overlap": 0,
+    "validation_test_overlap": 0
+  }
+}

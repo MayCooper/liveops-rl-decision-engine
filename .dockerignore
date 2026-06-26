@@ -1,0 +1,11 @@
+.env
+.env.*
+.venv
+__pycache__
+*.pyc
+*.log
+.git
+.github
+.codex
+.agents
+artifacts/local_logs.jsonl

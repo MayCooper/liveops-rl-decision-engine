@@ -1,0 +1,80 @@
+{
+  "architecture": {
+    "decision_agent": "single_rl_policy",
+    "guardrail_layer": "deterministic_safety_gate",
+    "explanation_layer": "optional_audit_explanation_only",
+    "note": "There is one learned decision agent. Policy rules constrain serving and explanations summarize decisions; they do not choose player actions."
+  },
+  "rules": [
+    {
+      "id": "COLD-001",
+      "action": "unlock_elite_match",
+      "condition": "cold_start == true",
+      "decision": "block",
+      "reason": "Cold-start players need safe onboarding before elite difficulty is unlocked."
+    },
+    {
+      "id": "COLD-002",
+      "action": "grant_upgrade_currency",
+      "condition": "cold_start == true and recent_rewards_24h > 0",
+      "decision": "block",
+      "reason": "Avoid repeated resource grants before enough behavior history exists."
+    },
+    {
+      "id": "ECON-001",
+      "action": "grant_upgrade_currency",
+      "condition": "recent_rewards_24h >= 3",
+      "decision": "block",
+      "reason": "Reward saturation is high; resource grants are blocked to control economy inflation."
+    },
+    {
+      "id": "ECON-002",
+      "action": "offer_temporary_power_boost",
+      "condition": "recent_rewards_24h >= 3",
+      "decision": "block",
+      "reason": "Temporary power boosts are blocked when recent reward exposure is already high."
+    },
+    {
+      "id": "DIFF-001",
+      "action": "unlock_elite_match",
+      "condition": "frustration_score >= 0.65 or churn_risk >= 0.55",
+      "decision": "block",
+      "reason": "Do not increase challenge while the player is frustrated or at elevated churn risk."
+    },
+    {
+      "id": "DIFF-002",
+      "action": "reduce_enemy_power",
+      "condition": "win_probability >= 0.55 and consecutive_losses < 3",
+      "decision": "block",
+      "reason": "Enemy reductions require repeated failure or low win probability."
+    },
+    {
+      "id": "REC-001",
+      "action": "recommend_recovery_match",
+      "condition": "fatigue >= 0.65",
+      "decision": "boost",
+      "reason": "High fatigue should prioritize recovery over difficulty changes."
+    },
+    {
+      "id": "ADV-001",
+      "action": "unlock_elite_match",
+      "condition": "advanced_player == true and frustration_score < 0.45 and win_probability > 0.55",
+      "decision": "boost",
+      "reason": "Advanced low-frustration players can receive harder content to prevent boredom."
+    }
+  ],
+  "monitoring_metrics": [
+    "win_rate",
+    "avg_reward",
+    "final_frustration",
+    "final_churn_risk",
+    "avg_cost",
+    "policy_violations",
+    "blocked_action_rate"
+  ],
+  "rollback_conditions": [
+    "policy_violations > 0 for safety_gated_rl",
+    "avg_cost materially exceeds rule_based without win-rate improvement",
+    "final_churn_risk is worse than rule_based in cold_start or new_player_stuck scenarios"
+  ]
+}

@@ -1,0 +1,16 @@
+﻿fastapi
+uvicorn[standard]
+pydantic
+pydantic-settings
+numpy
+pandas
+google-cloud-bigquery
+google-cloud-storage
+google-genai
+langgraph
+requests
+python-dotenv
+langchain
+langchain-google-genai
+langchain-ollama
+

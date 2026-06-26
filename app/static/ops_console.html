@@ -1,0 +1,759 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LiveOps RL Decision Agent Operations Console</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --panel: #111827;
+      --panel-2: #1e293b;
+      --border: #334155;
+      --text: #e5e7eb;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --accent-2: #2563eb;
+      --success: #22c55e;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --code-bg: #020617;
+    }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: Arial, Helvetica, sans-serif; background:var(--bg); color:var(--text); font-size:14px; }
+    header { padding:22px 24px 16px; border-bottom:1px solid var(--border); background:linear-gradient(180deg, #111827 0%, #0f172a 100%); }
+    h1 { margin:0 0 6px; font-size:28px; letter-spacing:0; }
+    h2 { margin:0 0 12px; font-size:17px; }
+    h3 { margin:0 0 10px; font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; }
+    p { margin:6px 0; line-height:1.45; }
+    .subtitle { color:#cbd5e1; font-size:15px; }
+    .arch { margin-top:9px; color:var(--muted); font-size:13px; }
+    .status-strip { display:grid; grid-template-columns:repeat(auto-fit, minmax(145px,1fr)); gap:10px; padding:14px 24px; background:#0b1220; border-bottom:1px solid var(--border); }
+    .status-card, section, .raw { background:var(--panel); border:1px solid var(--border); border-radius:8px; }
+    .status-card { padding:10px; min-height:58px; min-width:0; overflow-wrap:anywhere; word-break:break-word; }
+    .status-card strong, .kv strong { display:block; color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.04em; margin-bottom:5px; }
+    .status-card span { display:block; font-weight:700; line-height:1.25; white-space:normal; overflow-wrap:anywhere; word-break:break-word; }
+    .layout { display:grid; grid-template-columns:290px minmax(0, 1fr) 360px; gap:14px; padding:14px; align-items:start; }
+    section { padding:14px; box-shadow:0 12px 28px rgba(0,0,0,.18); }
+    .stack { display:flex; flex-direction:column; gap:8px; }
+    button { border:1px solid var(--border); background:var(--panel-2); color:var(--text); border-radius:6px; padding:9px 10px; cursor:pointer; text-align:left; font-size:13px; min-height:36px; }
+    button:hover, button:focus { border-color:var(--accent); background:#243449; outline:none; }
+    button:disabled { opacity:.55; cursor:not-allowed; }
+    button.primary { background:var(--accent-2); border-color:#3b82f6; color:white; text-align:center; }
+    button.clear { color:#fecaca; border-color:#5f2935; background:#281923; }
+    textarea, input { width:100%; border:1px solid var(--border); border-radius:6px; padding:9px; font-family:Consolas, 'Courier New', monospace; font-size:12px; color:var(--text); background:#0b1220; }
+    textarea { min-height:150px; resize:vertical; }
+    table { width:100%; border-collapse:collapse; margin:8px 0 14px; }
+    th, td { border-bottom:1px solid var(--border); padding:8px 7px; text-align:left; vertical-align:top; font-size:13px; }
+    th { color:#cbd5e1; background:#172033; font-weight:700; }
+    .result-title { display:flex; justify-content:space-between; gap:12px; align-items:center; border-bottom:1px solid var(--border); padding-bottom:10px; margin-bottom:12px; }
+    .muted { color:var(--muted); }
+    .grid2 { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:10px; }
+    .grid3 { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:10px; }
+    .kv { border:1px solid var(--border); padding:10px; border-radius:7px; background:var(--panel-2); min-width:0; overflow-wrap:anywhere; }
+    .badge { display:inline-flex; align-items:center; max-width:100%; border:1px solid var(--border); border-radius:999px; padding:3px 8px; font-size:12px; background:#0b1220; color:var(--muted); white-space:normal; overflow-wrap:anywhere; word-break:break-word; line-height:1.2; }
+    .badge.served, .ok { color:var(--success); border-color:#166534; }
+    .badge.blocked, .bad { color:#fca5a5; border-color:#7f1d1d; }
+    .badge.available { color:var(--muted); }
+    .badge.warn { color:var(--warning); border-color:#92400e; }
+    .callout { border-left:3px solid var(--accent); background:#0b1220; padding:10px; margin:8px 0; color:#cbd5e1; }
+    pre { white-space:pre-wrap; word-break:break-word; background:var(--code-bg); color:#dbeafe; padding:12px; border-radius:6px; max-height:320px; overflow:auto; font-size:12px; border:1px solid var(--border); }
+    .chat-log { min-height:260px; max-height:460px; overflow:auto; border:1px solid var(--border); border-radius:6px; background:#0b1220; padding:10px; margin:10px 0; }
+    .msg { margin:0 0 10px; padding:9px; border-radius:6px; background:#172033; color:#dbeafe; }
+    .msg.user { background:#1d2d42; color:white; }
+    .msg.warn { background:#2a1d0b; border:1px solid #92400e; color:#fde68a; }
+    .console-head { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px; }
+    .console-head h2 { margin:0; }
+    .small-action { min-height:28px; padding:5px 8px; font-size:12px; color:#cbd5e1; }
+    .quick button { min-height:34px; }
+    .quick { display:grid; grid-template-columns:1fr; gap:6px; margin:10px 0; }
+    .raw { margin:0 14px 14px; padding:14px; }
+    .loading { color:var(--accent); }
+    ul { margin-top:6px; padding-left:20px; }
+    code { color:#bae6fd; }
+    .start-panel { border:1px solid #1d4ed8; background:#0b1b34; padding:12px; border-radius:8px; margin-bottom:14px; }
+    .start-panel p { color:#cbd5e1; margin:0 0 10px; }
+    .play-button { display:flex; align-items:center; justify-content:center; gap:10px; width:100%; min-height:52px; font-size:15px; font-weight:700; background:#2563eb; border-color:#60a5fa; color:white; text-align:center; }
+    .play-icon { width:0; height:0; border-top:8px solid transparent; border-bottom:8px solid transparent; border-left:13px solid currentColor; display:inline-block; }
+    details.manual-tools { margin-top:14px; border-top:1px solid var(--border); padding-top:10px; }
+    details.manual-tools summary { cursor:pointer; color:#cbd5e1; font-weight:700; margin-bottom:10px; }
+    .scenario-options { display:grid; grid-template-columns:1fr; gap:7px; margin:10px 0; }
+    .scenario-option { display:flex; justify-content:space-between; align-items:center; gap:8px; border-color:var(--border); min-width:0; }
+    .scenario-option.active { border-color:var(--accent); background:#12324a; color:white; }
+    .scenario-option span { color:var(--muted); font-size:12px; overflow-wrap:anywhere; }
+    .scenario-option.active span { color:#dbeafe; }
+    .step-list { display:grid; gap:7px; margin-top:10px; }
+    .step-item { display:grid; grid-template-columns:26px 1fr; gap:8px; align-items:center; color:#cbd5e1; font-size:12px; }
+    .step-num { display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:999px; border:1px solid var(--accent); color:var(--accent); background:#061423; font-weight:700; }
+    .control-note { color:var(--muted); font-size:12px; margin:-4px 0 8px; }
+    .mode-toggle { display:grid; grid-template-columns:1fr 1fr; gap:7px; margin:10px 0 12px; }
+    .mode-toggle button { text-align:center; min-height:42px; }
+    .mode-toggle button.active { border-color:var(--accent); background:#12324a; color:white; }
+    .mode-note { color:var(--muted); font-size:12px; line-height:1.35; margin:-4px 0 10px; }
+    .goal-strip { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:10px; margin:12px 0; }
+    .goal-card { border:1px solid var(--border); border-radius:7px; background:#0b1220; padding:10px; }
+    .goal-card strong { display:block; color:#e0f2fe; margin-bottom:4px; }
+    .goal-card span { color:var(--muted); font-size:12px; line-height:1.35; }    .experiment-grid { display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:10px; margin:10px 0 14px; }
+    .scenario-card { border:1px solid var(--border); background:#0b1220; border-radius:7px; padding:10px; }
+    .scenario-card strong { display:block; margin-bottom:6px; }
+    .sim-strip { display:grid; grid-template-columns:repeat(auto-fit, minmax(220px,1fr)); gap:10px; margin:12px 0 16px; }
+    .sim-step { border:1px solid var(--border); background:#0b1220; border-radius:7px; padding:11px; min-height:168px; }
+    .sim-step strong { display:flex; justify-content:space-between; gap:8px; margin-bottom:8px; color:#e0f2fe; }
+    .mini-bars { display:grid; gap:8px; margin-top:10px; }
+    .mini-bars label { display:grid; grid-template-columns:84px minmax(0,1fr); gap:8px; align-items:center; color:var(--muted); font-size:12px; margin-bottom:4px; }
+    .metric-value { display:flex; align-items:center; justify-content:flex-end; gap:6px; min-width:0; font-weight:700; color:#e5e7eb; }
+    .delta { display:inline-flex; align-items:center; justify-content:center; min-width:56px; font-size:11px; border:1px solid var(--border); border-radius:999px; padding:2px 6px; color:var(--muted); white-space:nowrap; }
+    .delta.good { color:var(--success); border-color:#166534; }
+    .delta.bad { color:#fca5a5; border-color:#7f1d1d; }
+    .mini-track { height:7px; background:#020617; border:1px solid var(--border); border-radius:999px; overflow:hidden; }
+    .mini-fill { height:100%; background:var(--accent); }
+    .mini-fill.warn { background:var(--warning); }
+    .mini-fill.bad { background:var(--danger); }
+    .action-name { margin-top:7px; color:#bae6fd; font-size:12px; line-height:1.3; overflow-wrap:anywhere; }
+    .day-summary { margin-top:7px; padding:7px; border:1px solid #1f3b5c; border-radius:6px; background:#08111f; color:#cbd5e1; font-size:12px; line-height:1.35; }
+    .next-action { margin-top:10px; padding:9px; border-radius:7px; background:#0b1220; border:1px solid var(--border); color:#cbd5e1; }
+    .agent-flow { display:grid; gap:10px; margin:12px 0 14px; }
+    .flow-step { display:grid; grid-template-columns:34px minmax(0,1fr) auto; gap:10px; align-items:start; border:1px solid var(--border); background:#0b1220; border-radius:7px; padding:10px; }
+    .flow-step.policy { border-left:3px solid var(--accent); }
+    .flow-step.audit { border-left:3px solid var(--danger); }
+    .flow-step.mixed { border-left:3px solid #8b5cf6; }
+    .agent-tag { display:inline-flex; align-items:center; gap:5px; color:var(--muted); font-size:11px; margin-bottom:4px; }
+    .agent-dot { width:8px; height:8px; border-radius:999px; background:var(--accent); }
+    .agent-tag.audit .agent-dot { background:var(--danger); }
+    .agent-tag.mixed .agent-dot { background:#8b5cf6; }
+    .run-explanation { border:1px solid #244761; border-radius:7px; background:#08111f; padding:12px; margin:12px 0; }
+    .run-explanation strong { display:block; color:#e0f2fe; margin-bottom:6px; }
+    .run-explanation p { margin:0; color:#dbeafe; line-height:1.5; }
+    .flow-num { display:inline-flex; align-items:center; justify-content:center; width:26px; height:26px; border-radius:999px; background:#061423; color:var(--accent); border:1px solid var(--accent); font-weight:700; }
+    .flow-title { font-weight:700; color:#e0f2fe; margin-bottom:4px; }
+    .flow-body { color:#cbd5e1; line-height:1.4; }
+    .flow-status { justify-self:end; white-space:nowrap; }
+    .agent-note { border:1px solid #1d4ed8; border-radius:7px; background:#0b1b34; padding:10px; color:#dbeafe; margin-top:8px; }
+    .agent-duo { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:12px 0; }
+    .agent-card { position:relative; border:1px solid var(--border); border-radius:7px; background:#0b1220; padding:12px 12px 12px 42px; overflow:hidden; min-height:76px; }
+    .agent-card strong { display:block; color:#e0f2fe; margin-bottom:4px; }
+    .agent-card span { color:#cbd5e1; font-size:12px; line-height:1.35; }
+    .agent-pulse { position:absolute; left:12px; top:16px; width:18px; height:18px; border-radius:999px; background:var(--accent); box-shadow:0 0 0 0 rgba(56,189,248,.6); animation:pulse 3.8s ease-in-out infinite; }
+    .agent-card.audit .agent-pulse { background:var(--danger); box-shadow:0 0 0 0 rgba(239,68,68,.55); animation-delay:1.2s; }
+    .sim-stage { display:grid; grid-template-columns:minmax(0,1fr) 220px; gap:12px; border:1px solid var(--border); border-radius:7px; background:#08111f; padding:12px; margin:12px 0; overflow:hidden; }
+    .action-scene { position:relative; min-height:176px; border:1px solid #244761; border-radius:7px; background:linear-gradient(180deg,#102033,#07111e); overflow:hidden; box-shadow:inset 0 1px 0 rgba(255,255,255,.04); }
+    .action-scene::before { content:""; position:absolute; inset:0; background:linear-gradient(90deg,rgba(56,189,248,.08) 1px,transparent 1px),linear-gradient(0deg,rgba(56,189,248,.05) 1px,transparent 1px); background-size:34px 34px; opacity:.35; }
+    .action-scene::after { content:""; position:absolute; inset:auto 12px 34px 12px; height:1px; background:linear-gradient(90deg,transparent,#38bdf8,transparent); opacity:.45; }
+    .scene-floor { position:absolute; left:0; right:0; bottom:0; height:34px; background:linear-gradient(180deg,#0d2632,#081821); border-top:1px solid #22506a; }
+    .scene-player { position:absolute; left:30px; bottom:34px; width:32px; height:46px; border-radius:15px 15px 8px 8px; background:linear-gradient(180deg,#7dd3fc,#0ea5e9); box-shadow:0 8px 20px rgba(14,165,233,.18); animation:playerStep 10s ease-in-out infinite; }
+    .scene-player::before { content:""; position:absolute; left:8px; top:-16px; width:17px; height:17px; border-radius:999px; background:#dbeafe; box-shadow:0 0 0 3px rgba(56,189,248,.16); }
+    .scene-label { position:absolute; left:12px; top:10px; color:#e0f2fe; font-weight:700; letter-spacing:.01em; }
+    .scene-copy { position:absolute; left:12px; top:34px; max-width:56%; color:#cbd5e1; font-size:12px; line-height:1.35; }
+    .scene-challenge, .scene-assist, .scene-path, .scene-marker, .scene-crate, .scene-reward, .scene-idle { display:none; position:absolute; }
+    .scene-challenge { right:42px; bottom:34px; width:58px; height:76px; border-radius:7px 7px 0 0; background:linear-gradient(180deg,#b45309,#7c2d12); border:1px solid #fdba74; box-shadow:0 10px 24px rgba(124,45,18,.24); animation:challengeRise 10s ease-in-out infinite; }
+    .difficulty-up .scene-challenge { display:block; }
+    .difficulty-down .scene-challenge { display:block; animation:challengeLower 10s ease-in-out infinite; background:linear-gradient(180deg,#0e7490,#164e63); border-color:#67e8f9; }
+    .scene-assist { right:96px; bottom:76px; width:78px; height:5px; border-radius:999px; background:#86efac; box-shadow:0 0 10px rgba(134,239,172,.28); transform:rotate(-12deg); animation:assistPulse 10s ease-in-out infinite; }
+    .difficulty-down .scene-assist { display:block; }
+    .scene-path { left:78px; right:50px; bottom:50px; height:4px; border-radius:999px; background:#38bdf8; animation:pathGlow 10s ease-in-out infinite; }
+    .scene-marker { right:42px; bottom:58px; min-width:58px; height:38px; border-radius:999px; border:1px solid #4ade80; color:#bbf7d0; display:none; align-items:center; justify-content:center; font-weight:700; font-size:12px; background:rgba(22,101,52,.18); animation:markerPulse 10s ease-in-out infinite; }
+    .quest .scene-path, .quest .scene-marker { display:flex; }
+    .scene-crate { right:40px; bottom:34px; width:76px; height:54px; border-radius:7px; background:linear-gradient(180deg,#a16207,#713f12); border:1px solid #fde68a; overflow:hidden; }
+    .scene-crate::after { content:""; position:absolute; left:0; right:0; bottom:0; height:0; background:linear-gradient(180deg,#86efac,#22c55e); animation:crateFill 10s ease-in-out infinite; }
+    .resources .scene-crate { display:block; }
+    .scene-reward { right:46px; bottom:52px; width:64px; height:64px; border-radius:999px; border:1px solid #e9d5ff; background:radial-gradient(circle,rgba(216,180,254,.5),rgba(168,85,247,.12)); box-shadow:0 0 16px rgba(216,180,254,.24); animation:rewardSpin 10s ease-in-out infinite; }
+    .cosmetic .scene-reward { display:block; }
+    .scene-idle { right:56px; bottom:56px; width:58px; height:58px; border-radius:999px; border:1px solid #7dd3fc; background:rgba(14,165,233,.08); animation:idlePulse 10s ease-in-out infinite; }
+    .idle .scene-idle { display:block; }
+    .scene-sequence { display:grid; gap:6px; align-content:start; }
+    .scene-pill { display:grid; grid-template-columns:46px 1fr; gap:7px; align-items:center; border:1px solid var(--border); border-radius:6px; background:#0b1220; padding:8px; color:#cbd5e1; font-size:12px; min-width:0; }
+    .scene-pill.active { border-color:#38bdf8; background:#0b1b34; }
+    .scene-pill strong { color:#e0f2fe; }
+    .scene-pill span { color:var(--muted); overflow-wrap:anywhere; }
+    .mini-fill { transition:width .5s ease; }
+    @keyframes pulse { 70% { box-shadow:0 0 0 7px rgba(56,189,248,0); } 100% { box-shadow:0 0 0 0 rgba(56,189,248,0); } }
+    @keyframes playerStep { 0%,100% { transform:translateX(0); } 50% { transform:translateX(22px); } }
+    @keyframes challengeRise { 0%,100% { height:70px; } 50% { height:86px; } }
+    @keyframes challengeLower { 0%,100% { height:82px; } 50% { height:60px; } }
+    @keyframes assistPulse { 0%,100% { opacity:.28; transform:rotate(-12deg) scaleX(.7); } 50% { opacity:.78; transform:rotate(-12deg) scaleX(1); } }
+    @keyframes pathGlow { 0%,100% { opacity:.35; } 50% { opacity:.85; box-shadow:0 0 10px rgba(56,189,248,.45); } }
+    @keyframes markerPulse { 0%,100% { transform:scale(.98); } 50% { transform:scale(1.02); } }
+    @keyframes crateFill { 0%,100% { height:24%; } 50% { height:72%; } }
+    @keyframes rewardSpin { 0%,100% { transform:rotate(0deg) scale(.97); } 50% { transform:rotate(14deg) scale(1.02); } }
+    @keyframes idlePulse { 0%,100% { opacity:.35; transform:scale(.96); } 50% { opacity:.75; transform:scale(1.02); } }
+    @media (max-width: 720px) { .flow-step { grid-template-columns:30px 1fr; } .flow-status { grid-column:2; justify-self:start; } .agent-duo, .goal-strip, .sim-stage { grid-template-columns:1fr; } }
+    @media (max-width: 1180px) { .experiment-grid { grid-template-columns:1fr 1fr; } }
+    @media (max-width: 720px) { .experiment-grid { grid-template-columns:1fr; } }
+    .bar { height:8px; border-radius:999px; background:#0b1220; border:1px solid var(--border); overflow:hidden; margin-top:8px; }
+    .fill { height:100%; width:0; background:var(--accent); }
+    .pipeline { display:grid; grid-template-columns:repeat(5, minmax(0,1fr)); gap:8px; margin:12px 0; }
+    .pipe-step { border:1px solid var(--border); border-radius:7px; background:#0b1220; padding:9px; color:#cbd5e1; font-size:12px; text-align:center; }
+    @media (max-width: 1180px) { .pipeline { grid-template-columns:1fr; } }
+    @media (max-width: 1180px) { .layout { grid-template-columns:1fr; } .status-strip { grid-template-columns:repeat(2, minmax(0,1fr)); } .grid3 { grid-template-columns:1fr; } }
+    @media (max-width: 720px) { .status-strip { grid-template-columns:1fr; padding:12px; } .layout { padding:12px; } .grid2 { grid-template-columns:1fr; } }
+    body.embedded header { display:none; }
+    body.embedded .start-panel .scenario-options,
+    body.embedded .start-panel .play-button,
+    body.embedded .start-panel .step-list { display:none; }
+    body.embedded .start-panel::after { content:"Synced from the arena above. Move sliders, apply actions, or play matches there; this panel updates automatically."; display:block; border:1px solid #1d4ed8; border-radius:7px; background:#081b34; padding:10px; color:#dbeafe; line-height:1.4; }
+    body.embedded .agent-pulse,
+    body.embedded .scene-player,
+    body.embedded .scene-challenge,
+    body.embedded .scene-assist,
+    body.embedded .scene-path,
+    body.embedded .scene-marker,
+    body.embedded .scene-crate::after,
+    body.embedded .scene-reward,
+    body.embedded .scene-idle { animation:none!important; }
+    .live-sync-note { border-left:3px solid var(--accent); background:#0b1220; padding:10px; margin:8px 0 12px; color:#dbeafe; }
+    .trace-compact { display:grid; gap:8px; margin:10px 0; }
+    .trace-compact .trace-row { border:1px solid var(--border); border-left:3px solid var(--accent); border-radius:7px; background:#0b1220; padding:9px; }
+    .trace-compact .trace-row.red { border-left-color:var(--danger); background:#25131a; }
+    .trace-compact .trace-row.green { border-left-color:var(--success); }
+    .trace-compact .trace-row strong { display:block; color:#e0f2fe; margin-bottom:4px; }
+    .trace-compact .trace-row span { color:#cbd5e1; font-size:12px; line-height:1.35; }
+  </style>
+</head>
+<body><script>if (window.top !== window || new URLSearchParams(location.search).get("embedded") === "1") document.body.classList.add("embedded");</script>
+  <header>
+    <h1>LiveOps RL Decision Agent Operations Console</h1>
+    <div class="subtitle">Operations console with health checks, runtime mode, manual recommendation tools, single-agent policy trace cards, OPE, audits, logs, 7-day progress, and Q&A.</div>
+    <div class="arch">FastAPI | One RL Decision Agent | Tabular Q-learning | Red safety/risk gate | Deterministic fallback | Optional BigQuery/Gemini | explanation console</div>
+  <div class="linkbar"><a href="/">Back to arena simulator</a><a href="/docs">API docs</a></div></header>
+
+  <div class="status-strip" id="statusbar">
+    <div class="status-card"><strong>Runtime mode</strong><span>loading</span></div>
+    <div class="status-card"><strong>Project</strong><span>not configured</span></div>
+    <div class="status-card"><strong>BigQuery dataset</strong><span>not configured</span></div>
+    <div class="status-card"><strong>BigQuery</strong><span>disabled</span></div>
+    <div class="status-card"><strong>Explanation mode</strong><span>not configured</span></div>
+    <div class="status-card"><strong>Policy loaded</strong><span>loading</span></div>
+    <div class="status-card"><strong>Data source</strong><span>repo</span></div>
+    <div class="status-card"><strong>Offline episodes</strong><span>repo_csv</span></div>
+  </div>
+
+  <main class="layout">
+    <section>
+      <div class="start-panel">
+        <h3>Start here</h3>
+        <p>Pick a scenario, then press play. The app runs one RL Decision Agent path: state intake, Q-policy scoring, red safety/risk gate, simulation replay, OPE evidence, rollout check, and explanation.</p>
+        <h3>Runtime mode</h3>
+        <div class="mode-toggle">
+          <button id="modeLocal" class="active" onclick="setRuntimeMode('local')">Deterministic fallback</button>
+          <button id="modeAuto" onclick="setRuntimeMode('auto')">Cloud auto</button>
+        </div>
+        <div class="mode-note" id="runtimeModeNote">Deterministic fallback uses bundled repo files. Cloud auto can use BigQuery/Gemini only when explicitly configured.</div>
+        <div class="scenario-options" id="scenarioOptions">
+          <button class="scenario-option active" onclick="selectExperimentScenario('all')"><strong>All scenarios</strong><span>best overview</span></button>
+          <button class="scenario-option" onclick="selectExperimentScenario('new')"><strong>Struggling new player</strong><span>frustration risk</span></button>
+          <button class="scenario-option" onclick="selectExperimentScenario('advanced')"><strong>Bored advanced player</strong><span>under-challenge</span></button>
+          <button class="scenario-option" onclick="selectExperimentScenario('stable')"><strong>Stable player</strong><span>no intervention</span></button>
+        </div>
+        <button class="play-button" onclick="runExperiment()"><span class="play-icon"></span><span>Play Experiment</span></button>
+        <div class="step-list">
+          <div class="step-item"><span class="step-num">1</span><span>Serve policy action</span></div>
+          <div class="step-item"><span class="step-num">2</span><span>Replay 7-day progress cards</span></div>
+          <div class="step-item"><span class="step-num">3</span><span>Show OPE and audit evidence</span></div>
+        </div>
+      </div>
+      <details class="manual-tools" open>
+        <summary>Manual tools</summary>
+        <h3>Focused checks</h3>
+        <p class="control-note">Use these when you want one specific result.</p>
+        <div class="stack">
+          <button onclick="healthCheck()">Health Check</button>
+          <button onclick="policyMetrics()">Policy Metrics</button>
+          <button onclick="runAudit()">Run Safety / Policy Audit</button>
+          <button onclick="simulateEpisode()">Show 7-Day Progress</button>
+          <button onclick="loadOpeMetrics()">Load OPE Metrics</button>
+          <button onclick="recentLogs()">Recent Logs</button>
+          <button class="clear" onclick="clearResults()">Clear Results</button>
+        </div>
+      <h3 style="margin-top:18px">Cloud/GCP</h3>
+      <div class="stack">
+        <button onclick="recentCloud('recommendations')">Recent BigQuery Recommendations</button>
+        <button onclick="recentCloud('audits')">Recent BigQuery Audits</button>
+        <button onclick="recentCloud('metrics')">Recent BigQuery Policy Metrics</button>
+        <button onclick="datasetProfile()">Dataset Profile</button>
+        <button onclick="syntheticEpisodeSample()">Synthetic Episode Sample</button>
+      </div>
+      <h3 style="margin-top:18px">Recommendation scenarios</h3>
+      <div class="stack">
+        <button onclick="recommendScenario('new')">Struggling New Player</button>
+        <button onclick="recommendScenario('advanced')">Bored Advanced Player</button>
+        <button onclick="recommendScenario('stable')">Stable Player</button>
+      </div>
+      <h3 style="margin-top:18px">Custom player state</h3>
+      <textarea id="customPayload"></textarea>
+      <button class="primary" style="width:100%;margin-top:8px" onclick="submitCustomRecommendation()">Submit Custom Recommendation</button>
+      </details>
+    </section>
+
+    <section>
+      <div class="result-title"><h2 id="resultHeading">Results</h2><span class="badge" id="lastAction">No request yet</span></div>
+      <div id="results"><div class="callout">Choose a scenario on the left, then press <strong>Play Experiment</strong>. The console will show the single RL Decision Agent path, red safety gate, day-by-day progress cards, OPE, and audit evidence. Manual tools are available below the play controls.</div><div class="pipeline"><div class="pipe-step">Player state</div><div class="pipe-step">Served policy action</div><div class="pipe-step">Simulation replay</div><div class="pipe-step">OPE evidence</div><div class="pipe-step">Audit decision</div></div></div>
+    </section>
+
+    <section>
+      <div class="console-head"><h2>RL Agent Q&A / Explanation Console</h2><button class="small-action" onclick="resetAgentChat()">Clear</button></div>
+      <p class="muted">Ask follow-up questions about what the RL Decision Agent served, what the red safety/risk gate blocked, which policy rule applied, metrics, and rollout evidence. This console explains results only; it does not choose actions.</p>
+      <div class="badge" id="geminiFlag">Explanation: checking</div>
+      <div class="quick">
+        <button onclick="sendQuick('Explain the last agent run in plain English')">Explain run</button>
+        <button onclick="sendQuick('Why were any actions blocked by the safety mask?')">Why blocked?</button>
+        <button onclick="sendQuick('What should we do next for this player scenario?')">What next?</button>
+      </div>
+      <div class="chat-log" id="chatLog"><div class="msg">RL explanation console ready.</div></div>
+      <textarea id="agentInput" style="min-height:76px" placeholder="Ask about the current run, player scenario, rollout risk, OPE, or what to do next"></textarea>
+      <button class="primary" style="width:100%;margin-top:8px" onclick="sendAgentMessage()">Send</button>
+    </section>
+  </main>
+
+  <section class="raw">
+    <h2>Raw JSON</h2>
+    <pre id="rawJson">{}</pre>
+  </section>
+
+<script>
+const scenarios = {
+  new: { request_id: 'demo-new-player', player: { segment:'new', skill:0.2, frustration:0.86, engagement:0.3, churn_risk:0.78, economy_balance:0.42, recent_losses:5, recent_rewards:1, day:4 } },
+  advanced: { request_id: 'demo-advanced-player', player: { segment:'advanced', skill:0.9, frustration:0.2, engagement:0.32, churn_risk:0.46, economy_balance:0.7, recent_losses:1, recent_rewards:0, day:7 } },
+  stable: { request_id: 'demo-stable-player', player: { segment:'mid_skill', skill:0.6, frustration:0.22, engagement:0.75, churn_risk:0.2, economy_balance:0.66, recent_losses:0, recent_rewards:1, day:5 } }
+};
+let lastRecommendation = null;
+let lastAudit = null;
+let lastMetrics = null;
+let lastOpe = null;
+let lastHealth = null;
+let selectedExperimentScenario = 'all';
+let loadingCount = 0;
+
+document.getElementById('customPayload').value = JSON.stringify(scenarios.new, null, 2);
+
+async function request(path, options={}) {
+  setLoading(true);
+  try {
+    const res = await fetch(path, { headers: { 'Content-Type': 'application/json' }, ...options });
+    const text = await res.text();
+    let data;
+    try { data = text ? JSON.parse(text) : {}; } catch { data = { text }; }
+    if (!res.ok) throw new Error(data.detail || data.error || text || res.statusText);
+    setRaw(data);
+    return data;
+  } finally { setLoading(false); }
+}
+function setLoading(on) { loadingCount += on ? 1 : -1; loadingCount = Math.max(0, loadingCount); document.querySelectorAll('button').forEach(b => b.disabled = loadingCount > 0); document.getElementById('lastAction').textContent = loadingCount > 0 ? 'Loading...' : new Date().toLocaleTimeString(); }
+function setRaw(data) { document.getElementById('rawJson').textContent = JSON.stringify(data, null, 2); }
+function setHeading(title) { document.getElementById('resultHeading').textContent = title; }
+function esc(v) { return String(v ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function fmt(n) { return typeof n === 'number' ? n.toFixed(4) : esc(n); }
+function renderError(err) { document.getElementById('results').innerHTML = `<div class="callout bad">${esc(err.message || err)}</div>`; }
+function badge(text, cls) { return `<span class="badge ${cls || ''}">${esc(text)}</span>`; }
+function valueOrUnknown(v) { return v === null || v === undefined || v === '' ? 'not configured' : v; }
+async function setRuntimeMode(mode) {
+  try {
+    const data = await request('/runtime_mode', { method:'POST', body: JSON.stringify({ mode }) });
+    renderCloudStatus(data);
+  } catch(e) { renderError(e); }
+}
+function renderRuntimeMode(data) {
+  const mode = data.runtime_mode || 'demo';
+  document.getElementById('modeLocal')?.classList.toggle('active', mode === 'demo' || mode === 'local');
+  document.getElementById('modeAuto')?.classList.toggle('active', mode === 'auto' || mode === 'cloud');
+  const note = document.getElementById('runtimeModeNote');
+  if (!note) return;
+  if (mode === 'demo' || mode === 'local') {
+    note.textContent = 'Deterministic fallback: bundled repo data, BigQuery disabled, Gemini disabled.';
+  } else if (data.use_bigquery || data.use_gemini) {
+    note.textContent = `Cloud auto: data source ${data.data_source}. BigQuery ${data.use_bigquery ? 'enabled' : 'disabled'}. Gemini ${data.use_gemini ? 'enabled' : 'fallback'}.`;
+  } else {
+    note.textContent = 'Cloud auto is selected, but integrations are not explicitly configured, so repo data and deterministic fallback remain active.';
+  }
+}
+function selectExperimentScenario(name) {
+  selectedExperimentScenario = name;
+  document.querySelectorAll('.scenario-option').forEach(btn => btn.classList.remove('active'));
+  const buttons = Array.from(document.querySelectorAll('.scenario-option'));
+  const index = ['all','new','advanced','stable'].indexOf(name);
+  if (buttons[index]) buttons[index].classList.add('active');
+}
+function selectedScenarioEntries() {
+  if (selectedExperimentScenario === 'all') return [['Struggling new player', 'new'], ['Bored advanced player', 'advanced'], ['Stable player', 'stable']];
+  const labels = { new:'Struggling new player', advanced:'Bored advanced player', stable:'Stable player' };
+  return [[labels[selectedExperimentScenario], selectedExperimentScenario]];
+}
+async function runExperiment() {
+  try {
+    setHeading('Agent Run');
+    document.getElementById('results').innerHTML = '<div class="callout">Starting the agent run...</div><div class="agent-flow"><div class="flow-step"><span class="flow-num">1</span><div><div class="flow-title">Scenario selected</div><div class="flow-body">Preparing deterministic policy checks.</div></div><span class="flow-status badge warn">running</span></div></div>';
+    const health = await request('/health');
+    renderCloudStatus(health);
+    const selected = selectedScenarioEntries();
+    const recommendationResults = [];
+    for (const [label, key] of selected) {
+      const rec = await request('/recommend_action', { method:'POST', body: JSON.stringify(scenarios[key]) });
+      recommendationResults.push([label, rec]);
+    }
+    lastRecommendation = recommendationResults[0]?.[1] || null;
+    const simPayload = selectedExperimentScenario === 'all' ? null : JSON.stringify(scenarios[selectedExperimentScenario]);
+    const sim = await request('/simulate_episode?days=7&seed=42', simPayload ? { method:'POST', body: simPayload } : { method:'POST' });
+    lastSimulation = sim;
+    const ope = await request('/ope_metrics');
+    lastOpe = ope;
+    const metrics = await request('/policy_metrics');
+    lastMetrics = metrics;
+    const audit = await request('/run_agent_audit', { method:'POST', body:'{}' });
+    lastAudit = audit;
+    const agentNote = await request('/agent_message', {
+      method:'POST',
+      body: JSON.stringify({
+        message:'Explain this agent run as one concise paragraph. Include what the RL Decision Agent served, what the audit/explanation layer checked, the rollout decision, and the OPE confidence. Do not change actions or metrics.',
+        context:{ last_recommendation:lastRecommendation, last_audit:lastAudit, last_metrics:lastMetrics, last_ope:lastOpe, health:lastHealth }
+      })
+    });
+    updateExplanationStatus(agentNote);
+    resetAgentChat('Play Experiment completed. Ask the audit/explanation console about this run.');
+    addMsg('Explain this agent run.', 'user');
+    addMsg(agentNote.response, 'agent');
+    setRaw({ health, recommendations:Object.fromEntries(recommendationResults), simulation:sim, off_policy_evaluation:ope, audit, agent_note:agentNote, selected_scenario:selectedExperimentScenario });
+    renderExperimentRun({ health, recommendations:recommendationResults, simulation:sim, ope, audit, agentNote, selectedScenario:selectedExperimentScenario });
+  } catch(e) { renderError(e); }
+}
+function cloudAutoCredentialNotice(health) {
+  if (!health || health.runtime_mode !== 'auto' || health.use_bigquery || health.use_gemini) return '';
+  const missing = [];
+  if (!health.use_bigquery) missing.push('BigQuery needs DATA_SOURCE=bigquery, USE_BIGQUERY=true, GCP_PROJECT, BQ_DATASET, and Google credentials');
+  if (!health.use_gemini) missing.push('Gemini needs ENABLE_GEMINI=true and GEMINI_API_KEY or GOOGLE_API_KEY');
+  return `<div class="callout warn"><strong>Cloud auto is not connected yet.</strong><p>${esc(missing.join('. '))}. This run used bundled repo data and deterministic fallback instead.</p></div>`;
+}
+function renderExperimentRun(data) {
+  const ope = data.ope || {};
+  const [evidence, evidenceClass] = ope.available ? evidenceLabel(ope) : ['OPE unavailable', 'warn'];
+  const simRows = data.simulation.rows || [];
+  const selectedLabel = data.selectedScenario === 'all' ? 'All scenarios' : selectedScenarioEntries()[0]?.[0] || data.selectedScenario;
+  const primaryRec = data.recommendations[0]?.[1] || {};
+  const recSummary = data.recommendations.map(([name, rec]) => `${esc(name)}: ${esc(rec.recommended_action)} (${(rec.blocked_actions || []).length} blocked)`).join('<br>');
+  const auditDecision = data.audit.rollout_decision || 'unknown';
+  document.getElementById('results').innerHTML = `
+    ${cloudAutoCredentialNotice(data.health)}
+
+    <div class="callout">Agent run complete. The play flow used one RL Decision Agent: Q-policy scoring, the red deterministic safety/risk gate, deterministic simulation replay, computed OPE metrics, and rollout evidence before generating explanation text.</div>
+    <div class="goal-strip">
+      <div class="goal-card"><strong>Raise engagement</strong><span>Good actions should keep the player active and interested.</span></div>
+      <div class="goal-card"><strong>Lower frustration</strong><span>Good actions should reduce pressure, especially after losses or blocked choices.</span></div>
+      <div class="goal-card"><strong>Reduce churn risk</strong><span>The policy optimizes for retention while avoiding unsafe economy impact.</span></div>
+    </div>
+    <div class="agent-duo">
+      <div class="agent-card"><span class="agent-pulse"></span><strong>One RL Decision Agent</strong><span>Serves Q-learning actions that trade off engagement, derived frustration, churn risk, and economy safety.</span></div>
+      <div class="agent-card audit"><span class="agent-pulse"></span><strong>Red safety/risk component</strong><span>The red deterministic gate blocks risky actions before serving. It is inside the same RL agent serving path; explanation text describes what happened and does not choose actions.</span></div>
+    </div>
+    <div class="agent-flow">
+      ${flowStep(1, 'Scenario selected', `${esc(selectedLabel)}${data.selectedScenario === 'all' ? ' were evaluated for a quick overview.' : ' was used for the recommendation and simulation replay.'}`, 'complete', 'served', 'policy')}
+      ${flowStep(2, 'Served policy action', recSummary || 'No recommendation returned.', esc(primaryRec.recommended_action || 'ready'), 'served', 'policy')}
+      ${flowStep(3, 'Simulation replay', `${simRows.length} deterministic visual steps rendered from the served policy action.`, 'complete', 'served', 'policy')}
+      ${flowStep(4, 'OPE evidence', `SNIPS ${fmt(ope.snips_estimate)} with match rate ${fmt(ope.match_rate)} and ESS ${fmt(ope.effective_sample_size)}.`, evidence, evidenceClass, 'audit')}
+      ${flowStep(5, 'Rollout / safety evidence', `Rollout decision: ${esc(auditDecision)}. Human approval required: ${esc(data.audit.human_approval_required)}.`, esc(auditDecision), auditDecision === 'approve' ? 'served' : 'warn', 'audit')}
+      ${flowStep(6, 'Explanation of what the RL agent did', `A paragraph explanation is shown below. Source: ${data.agentNote?.use_gemini ? 'Gemini' : 'deterministic fallback'}.`, data.agentNote?.use_gemini ? 'Gemini' : 'fallback', data.agentNote?.use_gemini ? 'available' : 'warn', 'audit')}
+    </div>
+    <div class="run-explanation"><strong>Explanation of what the RL agent did</strong><p>${esc(data.agentNote?.response || 'No explanation returned.')}</p></div>
+    <div class="experiment-grid">
+      ${data.recommendations.map(([name, rec]) => `<div class="scenario-card"><strong>${esc(name)}</strong>${badge(rec.recommended_action, 'served')}<p class="muted">Blocked actions: ${(rec.blocked_actions || []).length}</p></div>`).join('')}
+      <div class="scenario-card"><strong>Audit decision</strong>${badge(auditDecision, auditDecision === 'approve' ? 'served' : 'warn')}<p class="muted">Gemini: ${esc(data.audit.use_gemini)}</p></div>
+    </div>
+    <h3>Visual simulation replay</h3>
+    ${renderSimulationVisual(simRows)}
+    <div class="grid3"><div class="kv"><strong>OPE evidence</strong>${badge(evidence, evidenceClass)}</div><div class="kv"><strong>SNIPS estimate</strong>${fmt(ope.snips_estimate)}</div><div class="kv"><strong>Match rate</strong>${fmt(ope.match_rate)}</div><div class="kv"><strong>Effective sample size</strong>${fmt(ope.effective_sample_size)}</div><div class="kv"><strong>Runtime</strong>${esc(data.health.runtime)}</div><div class="kv"><strong>BigQuery</strong>${esc(data.health.use_bigquery)}</div></div>
+    <div class="next-action"><strong>Manual result tools:</strong> open Manual tools on the left for raw policy metrics, OPE trace tables, BigQuery logs, focused audits, or custom player-state checks.</div>`;
+}
+function flowStep(num, title, body, status, cls, agent) {
+  const agentClass = agent || 'policy';
+  const agentName = agentClass === 'audit' ? 'Red safety/risk gate' : agentClass === 'mixed' ? 'RL policy + safety gate' : 'RL Decision Agent';
+  return `<div class="flow-step ${esc(agentClass)}"><span class="flow-num">${esc(num)}</span><div><div class="agent-tag ${esc(agentClass)}"><span class="agent-dot"></span>${agentName}</div><div class="flow-title">${esc(title)}</div><div class="flow-body">${body}</div></div><span class="flow-status">${badge(status, cls)}</span></div>`;
+}function renderSimulationVisual(rows) {
+  if (!rows.length) return '<p>No simulation rows returned.</p>';
+  const focus = rows[0];
+  const sequence = rows.slice(0, 6).map(r => `<div class="scene-pill"><strong>Day ${esc(r.day)} Â· ${esc(dateLabelForDay(r.day))}</strong><span>${esc(actionTitle(r.action))}</span></div>`).join('');
+  const cards = rows.map(r => {
+    const engagement = Number(r.next_engagement ?? r.engagement ?? 0);
+    const frustration = Number(r.next_frustration ?? r.frustration ?? 0);
+    const churn = Number(r.next_churn_risk ?? r.churn_risk ?? 0);
+    const prevEngagement = Number(r.engagement ?? engagement);
+    const prevFrustration = Number(r.frustration ?? frustration);
+    const prevChurn = Number(r.churn_risk ?? churn);
+    const engagementDelta = delta(engagement, prevEngagement, true);
+    const frustrationDelta = delta(frustration, prevFrustration, false);
+    const churnDelta = delta(churn, prevChurn, false);
+    return `<div class="sim-step"><strong><span>Day ${esc(r.day)} Â· ${esc(dateLabelForDay(r.day))}</span><span>${badge(r.retained ? 'retained' : 'churned', r.retained ? 'served' : 'blocked')}</span></strong><div class="action-name">Action: ${esc(actionTitle(r.action))}</div><div class="day-summary">${daySummary(engagement - prevEngagement, frustration - prevFrustration, churn - prevChurn, frustration, churn)}</div><div class="mini-bars"><div><label><span>Engagement</span><span class="metric-value">${pctValue(engagement)}${engagementDelta}</span></label><div class="mini-track"><div class="mini-fill" style="width:${pct(engagement)}%"></div></div></div><div><label><span>Frustration</span><span class="metric-value">${pctValue(frustration)}${frustrationDelta}</span></label><div class="mini-track"><div class="mini-fill warn" style="width:${pct(frustration)}%"></div></div></div><div><label><span>Churn risk</span><span class="metric-value">${pctValue(churn)}${churnDelta}</span></label><div class="mini-track"><div class="mini-fill bad" style="width:${pct(churn)}%"></div></div></div></div></div>`;
+  }).join('');
+  return `<div class="sim-stage">${renderActionScene(focus)}<div class="scene-sequence">${sequence}</div></div><div class="sim-strip">${cards}</div>`;
+}
+function delta(current, previous, higherIsGood) {
+  const change = current - previous;
+  if (Math.abs(change) < 0.0005) return '<span class="delta">held</span>';
+  const good = higherIsGood ? change > 0 : change < 0;
+  const arrow = change > 0 ? '+' : '-';
+  return `<span class="delta ${good ? 'good' : 'bad'}">${arrow} ${(Math.abs(change) * 100).toFixed(1)}%</span>`;
+}
+function changeText(change, upText, downText, heldText) {
+  if (Math.abs(change) < 0.005) return heldText;
+  return change > 0 ? upText : downText;
+}
+function daySummary(engagementChange, frustrationChange, churnChange, frustration, churn) {
+  const parts = [];
+  parts.push(changeText(engagementChange, 'engagement improved', 'engagement slipped', 'engagement held'));
+  parts.push(Number(frustration) >= 0.995 && Math.abs(frustrationChange) < 0.005 ? 'frustration stayed maxed' : changeText(frustrationChange, 'frustration rose', 'frustration eased', 'frustration held'));
+  parts.push(Number(churn) >= 0.995 && Math.abs(churnChange) < 0.005 ? 'churn risk stayed maxed' : changeText(churnChange, 'churn risk worsened', 'churn risk improved', 'churn risk held'));
+  return parts.join(', ') + '.';
+}
+function renderActionScene(row) {
+  const action = row?.action || 'do_nothing';
+  return `<div class="action-scene ${actionClass(action)}"><div class="scene-label">${esc(actionTitle(action))}</div><div class="scene-copy">${esc(actionCopy(action))}</div><div class="scene-floor"></div></div>`;
+}
+function actionClass(action) {
+  return ({
+    increase_difficulty:'difficulty-up',
+    decrease_difficulty:'difficulty-down',
+    recommend_quest:'quest',
+    grant_bonus_resources:'resources',
+    offer_cosmetic_reward:'cosmetic',
+    do_nothing:'idle'
+  })[action] || 'idle';
+}
+function actionTitle(action) {
+  return ({
+    increase_difficulty:'Increase difficulty',
+    decrease_difficulty:'Lower difficulty',
+    recommend_quest:'Recommend quest',
+    offer_temporary_power_boost:'Temporary power boost',
+    grant_upgrade_currency:'Grant upgrade currency',
+    recommend_recovery_match:'Recovery match',
+    reduce_enemy_power:'Reduce enemy power',
+    unlock_elite_match:'Unlock elite match',
+    recommend_training_match:'Training match',
+    grant_bonus_resources:'Grant resources',
+    offer_cosmetic_reward:'Cosmetic reward',
+    do_nothing:'Hold steady'
+  })[action] || action;
+}
+function actionCopy(action) {
+  return ({
+    increase_difficulty:'The policy raises challenge for a player who can handle more pressure.',
+    decrease_difficulty:'The policy lowers the obstacle and adds assistance to reduce frustration.',
+    recommend_quest:'The policy points the player toward a guided objective.',
+    grant_bonus_resources:'The policy fills resources to stabilize the economy state.',
+    offer_cosmetic_reward:'The policy offers a low-risk reward without changing competitive balance.',
+    do_nothing:'The policy leaves the session stable and keeps monitoring.'
+  })[action] || 'The policy serves this action and monitors the next state.';
+}
+function renderArenaSync(payload) {
+  const rec = payload.lastRecommendation || {};
+  const f = rec.derived_features || {};
+  const expected = rec.expected_effect || {};
+  const blocked = rec.blocked_actions || [];
+  const scores = Object.entries(rec.arena_action_scores || {}).sort((a,b) => b[1] - a[1]).slice(0, 6);
+  const trace = rec.agent_trace || [];
+  lastRecommendation = rec;
+  setHeading('Live Arena Agent Path');
+  document.getElementById('lastAction').textContent = 'Synced from arena';
+  document.getElementById('results').innerHTML = `
+    <div class="live-sync-note"><strong>Connected to the experiment above.</strong><br>The cards below reflect the current arena sliders, served action, red safety gate, and latest match context automatically.</div>
+    <div class="goal-strip">
+      <div class="goal-card"><strong>Current preset</strong><span>${esc((payload.currentPreset || 'custom').replaceAll('_',' '))}</span></div>
+      <div class="goal-card"><strong>Served action</strong><span>${badge(actionTitle(rec.recommended_action || 'none'), 'served')}</span></div>
+      <div class="goal-card"><strong>Safety gate</strong><span>${blocked.length ? blocked.length + ' blocked action(s)' : 'No blocks on this state'}</span></div>
+    </div>
+    <div class="agent-flow">
+      ${flowStep(1, 'Arena state received', `Win ${pctValue(f.win_probability)}; frustration ${pctValue(f.frustration_score)}; churn ${pctValue(f.churn_risk)}.`, 'live', 'served', 'policy')}
+      ${flowStep(2, 'RL policy scored actions', scores.map(([a,v]) => `${esc(actionTitle(a))}: ${fmt(v)}`).join('<br>') || 'No scores returned.', 'scored', 'available', 'policy')}
+      ${flowStep(3, 'Red safety gate constrained serving', blocked.length ? blocked.map(b => `${esc(actionTitle(b.action))}: ${esc(b.reason)}`).join('<br>') : 'No unsafe actions were blocked for this state.', blocked.length ? 'blocked' : 'clear', blocked.length ? 'warn' : 'served', 'audit')}
+      ${flowStep(4, 'Served action updates the cards', `Expected win ${pctValue(expected.win_probability_before)} to ${pctValue(expected.win_probability_after)}; frustration ${pctValue(expected.frustration_before)} to ${pctValue(expected.frustration_after)}; churn ${pctValue(expected.churn_risk_before)} to ${pctValue(expected.churn_risk_after)}.`, esc(actionTitle(rec.recommended_action || 'none')), 'served', 'mixed')}
+    </div>
+    <div class="experiment-grid">
+      <div class="scenario-card"><strong>Win probability</strong>${badge(pctValue(f.win_probability), 'served')}<p class="muted">Power gap: ${fmt(f.power_gap_pct)}</p></div>
+      <div class="scenario-card"><strong>Frustration</strong>${badge(pctValue(f.frustration_score), Number(f.frustration_score) > .65 ? 'warn' : 'served')}<p class="muted">Derived from current telemetry.</p></div>
+      <div class="scenario-card"><strong>Churn risk</strong>${badge(pctValue(f.churn_risk), Number(f.churn_risk) > .55 ? 'warn' : 'served')}<p class="muted">Refreshes after every arena experiment.</p></div>
+      <div class="scenario-card"><strong>Blocked actions</strong>${badge(String(blocked.length), blocked.length ? 'warn' : 'served')}<p class="muted">Red gate is part of the same agent path.</p></div>
+    </div>
+    <h3>Single-agent trace from the arena</h3>
+    <div class="trace-compact">${trace.length ? trace.map(step => `<div class="trace-row ${esc(step.color || '')}"><strong>${esc(step.step)}. ${esc(step.component)}</strong><span>${esc(step.summary)}</span></div>`).join('') : '<p class="muted">No trace returned yet.</p>'}</div>
+    <h3>Latest match context</h3>
+    ${renderArenaTimeline(payload.timeline || [])}`;
+  setRaw({ synced_from_arena:true, source:payload.source, recommendation:rec, state:payload.state, timeline:payload.timeline || [] });
+}
+function renderArenaTimeline(rows) {
+  if (!rows.length) return '<p class="muted">No match has been played yet. The recommendation cards above are still live.</p>';
+  return `<div class="sim-strip">${rows.slice(-4).map(r => `<div class="sim-step"><strong><span>Step ${esc(r.step)}</span><span>${badge(r.won === null ? 'state' : (r.won ? 'won' : 'lost'), r.won === false ? 'blocked' : 'served')}</span></strong><div class="action-name">${esc(actionTitle(r.action || 'none'))}</div><div class="mini-bars"><div><label><span>Win</span><span class="metric-value">${pctValue(r.win)}</span></label><div class="mini-track"><div class="mini-fill" style="width:${pct(r.win)}%"></div></div></div><div><label><span>Frustration</span><span class="metric-value">${pctValue(r.frustration)}</span></label><div class="mini-track"><div class="mini-fill warn" style="width:${pct(r.frustration)}%"></div></div></div><div><label><span>Churn</span><span class="metric-value">${pctValue(r.churn)}</span></label><div class="mini-track"><div class="mini-fill bad" style="width:${pct(r.churn)}%"></div></div></div></div></div>`).join('')}</div>`;
+}
+window.addEventListener('message', event => {
+  if (event.origin !== window.location.origin) return;
+  if (event.data?.type === 'arena-recommendation-sync') renderArenaSync(event.data);
+});
+async function healthCheck() {
+  try {
+    const data = await request('/health');
+    setHeading('Health Check');
+    renderCloudStatus(data);
+    document.getElementById('results').innerHTML = `
+    <div class="grid3">${Object.entries(data).map(([k,v]) => `<div class="kv"><strong>${esc(k)}</strong>${esc(valueOrUnknown(v))}</div>`).join('')}</div>`;
+  } catch(e) { renderError(e); }
+}
+function renderCloudStatus(data) {
+  lastHealth = data;
+  renderRuntimeMode(data);
+  const dataSource = data.data_source === 'local' ? 'repo' : (data.data_source || 'repo');
+  const offlineSource = data.synthetic_episode_source === 'local_csv' ? 'repo_csv' : (data.synthetic_episode_source || 'repo_csv');
+  const items = [
+    ['Runtime mode', data.runtime_mode === 'local' ? 'deterministic fallback' : (data.runtime_mode || 'demo')],
+    ['Data source', dataSource],
+    ['BigQuery', data.use_bigquery ? 'enabled' : 'disabled'],
+    ['Explanation mode', data.use_gemini ? ('Gemini ' + (data.gemini_provider || 'enabled')) : 'deterministic fallback'],
+    ['Repo data', data.repo_data_available === false ? 'missing' : 'available'],
+    ['Cloud config', data.cloud_features_enabled ? 'enabled' : 'not configured'],
+    ['Env file', data.env_file_loaded ? 'loaded' : 'not loaded'],
+    ['Project', data.gcp_project || 'not configured'],
+    ['BigQuery dataset', data.bq_dataset || 'not configured'],
+    ['Policy loaded', data.policy_loaded],
+    ['Offline episodes', offlineSource]
+  ];
+  document.getElementById('statusbar').innerHTML = items.map(([k,v]) => `<div class="status-card"><strong>${esc(k)}</strong><span>${esc(valueOrUnknown(v))}</span></div>`).join('');
+  updateExplanationStatus(data);
+}
+async function recommendScenario(name) { try { renderRecommendation(await request('/recommend_action', { method:'POST', body: JSON.stringify(scenarios[name]) })); } catch(e) { renderError(e); } }
+async function submitCustomRecommendation() { try { renderRecommendation(await request('/recommend_action', { method:'POST', body: JSON.stringify(JSON.parse(document.getElementById('customPayload').value)) })); } catch(e) { renderError(e); } }
+function renderRecommendation(data) {
+  lastRecommendation = data; setHeading('Recommendation');
+  const blocked = new Set((data.blocked_actions || []).map(b => b.action));
+  const actions = Object.keys(data.raw_action_scores || {});
+  const rows = actions.map(a => { const served = data.served_action_scores?.[a]; const status = a === data.recommended_action ? 'served' : (blocked.has(a) || served <= -1e8 ? 'blocked' : 'available'); return `<tr><td>${esc(a)}</td><td>${fmt(data.raw_action_scores[a])}</td><td>${fmt(served)}</td><td>${badge(status, status)}</td></tr>`; }).join('');
+  document.getElementById('results').innerHTML = `
+
+    <div class="grid2"><div class="kv"><strong>Recommended action</strong>${badge(data.recommended_action, 'served')}</div><div class="kv"><strong>Policy version</strong>${esc(data.policy_version)}</div><div class="kv"><strong>Logged</strong>${esc(data.logged)}</div><div class="kv"><strong>Blocked action count</strong>${(data.blocked_actions || []).length}</div></div>
+    <h3>Safety notes</h3><ul>${(data.safety_notes || []).map(n => `<li>${esc(n)}</li>`).join('')}</ul>
+    <h3>Blocked actions</h3><ul>${(data.blocked_actions || []).map(b => `<li><strong>${esc(b.action)}</strong>: ${esc(b.reason)}</li>`).join('') || '<li>None</li>'}</ul>
+    <h3>Action score table</h3><table><thead><tr><th>Action</th><th>Raw score</th><th>Served score</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+async function policyMetrics() { try { const data = await request('/policy_metrics'); lastMetrics = data; renderMetrics(data); } catch(e) { renderError(e); } }
+function renderMetrics(data) { setHeading('Policy Metrics'); const q=data.q_learning||{}, rule=data.rule||{}, bandit=data.bandit||{}, gate=data.safety_gate||{}; const seg=q.reward_by_segment||{}; const best = Object.entries(seg).sort((a,b)=>b[1]-a[1])[0]; document.getElementById('results').innerHTML = `<div class="grid3"><div class="kv"><strong>Rule avg reward</strong>${fmt(rule.avg_reward)}</div><div class="kv"><strong>Bandit avg reward</strong>${fmt(bandit.avg_reward)}</div><div class="kv"><strong>Q-learning avg reward</strong>${fmt(q.avg_reward)}</div><div class="kv"><strong>Q-learning retention rate</strong>${fmt(q.retention_rate)}</div><div class="kv"><strong>Economy penalty</strong>${fmt(q.economy_penalty_avg)}</div><div class="kv"><strong>Best segment</strong>${best ? `${esc(best[0])} (${fmt(best[1])})` : 'unknown'}</div></div><h3>Safety gate</h3>${badge(gate.decision || 'unknown', gate.decision === 'approve' ? 'served' : 'warn')}<h3 style="margin-top:14px">Q-learning reward by segment</h3><table><tbody>${Object.entries(seg).map(([k,v])=>`<tr><td>${esc(k)}</td><td>${fmt(v)}</td></tr>`).join('')}</tbody></table>`; }
+async function runAudit() { try { const data = await request('/run_agent_audit', { method:'POST', body:'{}' }); lastAudit = data; renderAudit(data); } catch(e) { renderError(e); } }
+function renderAudit(data) { setHeading('Audit / Explanation'); const findings = data.findings || []; document.getElementById('results').innerHTML = `<div class="grid2"><div class="kv"><strong>Rollout decision</strong>${badge(data.rollout_decision, data.rollout_decision === 'approve' ? 'served' : 'warn')}</div><div class="kv"><strong>Human approval required</strong>${esc(data.human_approval_required)}</div><div class="kv"><strong>Risky segments</strong>${esc((data.risky_segments||[]).join(', ') || 'none')}</div><div class="kv"><strong>Allowed segments</strong>${esc((data.allowed_segments||[]).join(', ') || 'none')}</div><div class="kv"><strong>Blocked segments</strong>${esc((data.blocked_segments||[]).join(', ') || 'none')}</div><div class="kv"><strong>Monitoring metrics</strong>${esc((data.monitoring_metrics||[]).join(', '))}</div></div><h3>Rollback conditions</h3><ul>${(data.rollback_conditions||[]).map(x=>`<li>${esc(x)}</li>`).join('')}</ul><h3>Findings</h3><table><thead><tr><th>Scenario</th><th>Recommendation</th><th>Severity</th><th>Finding</th><th>Mitigation</th></tr></thead><tbody>${findings.map(f=>`<tr><td>${esc(f.scenario)}</td><td>${esc(f.recommendation)}</td><td>${badge(f.severity, f.severity === 'high' ? 'blocked' : 'available')}</td><td>${esc(f.finding)}</td><td>${esc(f.mitigation)}</td></tr>`).join('')}</tbody></table>`; }
+async function datasetProfile() { try { const data = await request('/dataset_profile'); renderDatasetProfile(data); } catch(e) { renderError(e); } }
+function renderDatasetProfile(data) {
+  setHeading('Dataset Profile');
+  const p = data.profile || {};
+  const source = data.source === 'bigquery' ? 'BigQuery' : 'repo JSON';
+  const segmentRows = Object.entries(p.segments || p.segment_counts || {}).map(([k,v]) => `<tr><td>${esc(k)}</td><td>${esc(v)}</td></tr>`).join('');
+  const actionRows = Object.entries(p.actions || p.action_counts || {}).map(([k,v]) => `<tr><td>${esc(k)}</td><td>${esc(v)}</td></tr>`).join('');
+  document.getElementById('results').innerHTML = `
+<div class="callout">Source: ${esc(source)}</div><div class="grid3"><div class="kv"><strong>Rows</strong>${esc(valueOrUnknown(p.rows))}</div><div class="kv"><strong>Players</strong>${esc(valueOrUnknown(p.players))}</div><div class="kv"><strong>Retention rate final</strong>${fmt(p.retention_rate_final)}</div><div class="kv"><strong>Avg reward</strong>${fmt(p.avg_reward)}</div></div><h3 style="margin-top:14px">Segment counts</h3><table><tbody>${segmentRows || '<tr><td>No segment counts available</td></tr>'}</tbody></table><h3>Action counts</h3><table><tbody>${actionRows || '<tr><td>No action counts available</td></tr>'}</tbody></table>`;
+}
+async function syntheticEpisodeSample() { try { const data = await request('/synthetic_episode_sample'); renderSyntheticEpisodeSample(data); } catch(e) { renderError(e); } }
+function renderSyntheticEpisodeSample(data) {
+  setHeading('Synthetic Episode Sample');
+  const rows = data.rows || [];
+  const source = data.source === 'bigquery' ? 'BigQuery' : (data.source === 'generated_fallback' ? 'generated fallback' : 'repo CSV');
+  const preferred = ['player_id','day','segment','action','reward','retained','engagement','frustration','churn_risk'];
+  const available = preferred.filter(k => rows.some(r => Object.prototype.hasOwnProperty.call(r, k)));
+  const cols = available.length ? available : Object.keys(rows[0] || {}).slice(0, 9);
+  document.getElementById('results').innerHTML = `
+<div class="callout">Source: ${esc(source)}</div>${rows.length ? `<table><thead><tr>${cols.map(c=>`<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${cols.map(c=>`<td>${fmt(r[c])}</td>`).join('')}</tr>`).join('')}</tbody></table>` : '<p>No synthetic episode rows available.</p>'}`;
+}
+function pct(v) { const n = Number(v || 0); return Math.max(0, Math.min(100, n * 100)); }
+function pctValue(v) { return `${pct(v).toFixed(1)}%`; }
+function dateLabelForDay(day){ const d=new Date(); d.setDate(d.getDate()+Math.max(0,Number(day||1)-1)); return d.toLocaleDateString(undefined,{month:'short',day:'numeric'}); }
+function evidenceLabel(ope) { const m=Number(ope.match_rate||0), ess=Number(ope.effective_sample_size||0); if (m >= 0.25 && ess >= 100) return ['stronger evidence','served']; if (m >= 0.10 && ess >= 25) return ['moderate evidence','warn']; return ['low evidence','blocked']; }
+async function loadOpeMetrics() { try { const data = await request('/ope_metrics'); lastOpe = data; renderOpeMetrics(data); } catch(e) { renderError(e); } }
+function renderOpeMetrics(data) {
+  setHeading('Offline Policy Evaluation');
+  if (!data.available) { document.getElementById('results').innerHTML = `<div class="callout warn">${esc(data.message || 'OPE metrics are not available.')}</div>`; return; }
+  const [label, cls] = evidenceLabel(data);
+  const matched = `${esc(data.matched_rows)} / ${esc(data.total_rows)}`;
+  const trace = data.trace_examples || [];
+  const segments = data.ope_by_segment || {};
+  const segmentRows = Object.entries(segments).map(([k,v]) => `<tr><td>${esc(k)}</td><td>${fmt(v.snips_estimate)}</td><td>${fmt(v.match_rate)}</td><td>${fmt(v.effective_sample_size)}</td><td>${esc(v.matched_rows)} / ${esc(v.total_rows)}</td></tr>`).join('');
+  const traceRows = trace.map(r => { const high = Number(r.importance_weight || 0) > 5; const clipped = Number(r.clipped_weight || 0) < Number(r.importance_weight || 0); return `<tr><td>${esc(r.player_id)}</td><td>${esc(r.day)}</td><td>${esc(r.segment)}</td><td>${esc(r.logged_action)}</td><td>${esc(r.candidate_action)}</td><td>${badge(r.match, r.match ? 'served' : 'blocked')}</td><td>${fmt(r.action_probability)}</td><td>${fmt(r.importance_weight)} ${high ? badge('high', 'warn') : ''} ${clipped ? badge('clipped', 'warn') : ''}</td><td>${fmt(r.reward)}</td><td>${fmt(r.ips_contribution)}</td></tr>`; }).join('');
+  document.getElementById('results').innerHTML = `
+
+    <div class="callout">OPE estimates how the served Q-learning policy would perform from logged synthetic behavior-policy data. Rows provide direct evidence when the logged action matches the candidate policy action; action probabilities are used for importance weighting.</div>
+    <div class="pipeline"><div class="pipe-step">Logged synthetic data</div><div class="pipe-step">Candidate policy replay</div><div class="pipe-step">IPS/SNIPS weighting</div><div class="pipe-step">Safety gate</div><div class="pipe-step">Rollout / safety evidence</div></div>
+    <div style="margin-bottom:10px">${badge(label, cls)}</div>
+    <div class="grid3"><div class="kv"><strong>OPE SNIPS estimate</strong>${fmt(data.snips_estimate)}<div class="bar"><div class="fill" style="width:${pct(data.snips_estimate)}%"></div></div></div><div class="kv"><strong>IPS estimate</strong>${fmt(data.ips_estimate)}<div class="bar"><div class="fill" style="width:${pct(data.ips_estimate)}%"></div></div></div><div class="kv"><strong>Clipped IPS estimate</strong>${fmt(data.clipped_ips_estimate)}<div class="bar"><div class="fill" style="width:${pct(data.clipped_ips_estimate)}%"></div></div></div><div class="kv"><strong>Match rate</strong>${fmt(data.match_rate)}<div class="bar"><div class="fill" style="width:${pct(data.match_rate)}%"></div></div></div><div class="kv"><strong>Effective sample size</strong>${fmt(data.effective_sample_size)}</div><div class="kv"><strong>Matched rows / total rows</strong>${matched}</div><div class="kv"><strong>Average logged reward</strong>${fmt(data.avg_logged_reward)}</div></div>
+    <h3 style="margin-top:14px">OPE by segment</h3><table><thead><tr><th>Segment</th><th>SNIPS</th><th>Match rate</th><th>ESS</th><th>Matched / total</th></tr></thead><tbody>${segmentRows}</tbody></table>
+    <h3>OPE Calculation Trace</h3><table><thead><tr><th>Player</th><th>Day</th><th>Segment</th><th>Logged action</th><th>Candidate action</th><th>Match</th><th>Propensity</th><th>Weight</th><th>Reward</th><th>IPS contribution</th></tr></thead><tbody>${traceRows}</tbody></table>`;
+}
+async function simulateEpisode() {
+  try {
+    const data = await request('/simulate_episode?days=7&seed=42', { method:'POST' });
+    lastSimulation = data;
+    setHeading('7-Day Progress Replay');
+    const rows=data.rows||[];
+    document.getElementById('results').innerHTML = `
+${renderSimulationVisual(rows)}${rows.length ? `<h3>Simulation table</h3><table><thead><tr><th>Day</th><th>Action</th><th>Reward</th><th>Engagement</th><th>Frustration</th><th>Churn risk</th><th>Retained</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${esc(r.day)}</td><td>${esc(r.action)}</td><td>${fmt(r.reward)}</td><td>${fmt(r.engagement ?? r.next_engagement)}</td><td>${fmt(r.frustration ?? r.next_frustration)}</td><td>${fmt(r.churn_risk ?? r.next_churn_risk)}</td><td>${esc(r.retained)}</td></tr>`).join('')}</tbody></table>` : ''}`;
+  } catch(e) { renderError(e); }
+}
+async function recentLogs() { try { const data = await request('/recent_local_logs?limit=8'); setHeading('Recent Logs'); renderRows(data.logs || [], 'Local logs'); } catch(e) { renderError(e); } }
+async function recentCloud(kind) { const map = { recommendations:['/recent_recommendations','Recent BigQuery Recommendations'], audits:['/recent_audits','Recent BigQuery Audits'], metrics:['/recent_policy_metrics','Recent BigQuery Policy Metrics'] }; try { const data = await request(map[kind][0]); setHeading(map[kind][1]); if (data.error || data.message) { document.getElementById('results').innerHTML = `<div class="callout">${esc(data.error || data.message)}</div>`; return; } renderRows(data.rows || [], map[kind][1]); } catch(e) { renderError(e); } }
+function renderRows(rows, title) { document.getElementById('results').innerHTML = rows.length ? `<h3>${esc(title)}</h3><table><thead><tr><th>Created at</th><th>Payload</th></tr></thead><tbody>${rows.map(l=>`<tr><td>${esc(l.created_at || '')}</td><td><code>${esc(JSON.stringify(l).slice(0,420))}</code></td></tr>`).join('')}</tbody></table>` : `<p>No ${esc(title).toLowerCase()} available.</p>`; }
+function clearResults() { lastRecommendation=null; lastAudit=null; lastMetrics=null; lastOpe=null; setHeading('Results'); document.getElementById('results').innerHTML='<p class="muted">Results cleared.</p>'; setRaw({}); }
+function sendQuick(text) { document.getElementById('agentInput').value = text; sendAgentMessage(); }
+async function sendAgentMessage() {
+  const text = document.getElementById('agentInput').value.trim();
+  if (!text) return;
+  addMsg(text, 'user');
+  try {
+    const data = await request('/agent_message', { method:'POST', body: JSON.stringify({ message:text, context:{ last_recommendation:lastRecommendation, last_audit:lastAudit, last_metrics:lastMetrics, last_ope:lastOpe, health:lastHealth } }) });
+    updateExplanationStatus(data);
+    if (data.gemini_error) addMsg(data.gemini_error, 'agent warn');
+    addMsg(data.response, 'agent');
+    document.getElementById('agentInput').value = '';
+  } catch(e) {
+    addMsg(e.message || String(e), 'agent');
+  }
+}
+function explanationStatusText(data) {
+  if (!data) return 'Explanation: checking';
+  if (data.use_gemini) return ('Explanation: Gemini ' + (data.gemini_provider || '')).trim();
+  if (data.gemini_configured || data.cloud_features_enabled) return 'Explanation: fallback';
+  return 'Explanation: deterministic fallback';
+}
+function updateExplanationStatus(data) {
+  const el = document.getElementById('geminiFlag');
+  if (el) el.textContent = explanationStatusText(data);
+}
+function resetAgentChat(message='RL explanation console ready.') {
+  const log = document.getElementById('chatLog');
+  if (!log) return;
+  log.innerHTML = '';
+  addMsg(message, '');
+}
+function addMsg(text, cls) {
+  const log = document.getElementById('chatLog');
+  const div = document.createElement('div');
+  div.className = `msg ${cls || ''}`;
+  div.textContent = text;
+  log.appendChild(div);
+  log.scrollTop = log.scrollHeight;
+}
+healthCheck();
+</script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

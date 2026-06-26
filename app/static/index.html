@@ -1,0 +1,893 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Adaptive LiveOps Decision Engine</title>
+  <style>
+    :root{
+      --bg:#07111f;--panel:#0d1728;--panel2:#111f35;--panel3:#172941;--border:#28425f;
+      --text:#e5e7eb;--muted:#95a3b8;--accent:#38bdf8;--blue:#2563eb;--green:#22c55e;
+      --yellow:#f59e0b;--red:#ef4444;--purple:#a78bfa;--code:#020617;--hero-scale:1;--boss-scale:1;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:radial-gradient(circle at 30% 0%,#13233c 0,#07111f 42%,#040914 100%);color:var(--text);font-family:Arial,Helvetica,sans-serif;font-size:14px}
+    header{padding:18px 22px;border-bottom:1px solid var(--border);background:linear-gradient(180deg,#102038,#07111f)}
+    h1{margin:0 0 6px;font-size:27px} h2{margin:0 0 12px;font-size:17px} h3{margin:12px 0 8px;color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.06em}
+    p{line-height:1.45}.subtitle{color:#cbd5e1}.arch{font-size:13px;color:var(--muted);margin-top:8px}
+    .layout{display:grid;grid-template-columns:330px minmax(0,1fr) 380px;gap:14px;padding:14px;align-items:start}
+    section,.card{background:linear-gradient(180deg,var(--panel),#0a1220);border:1px solid var(--border);border-radius:12px;padding:14px;box-shadow:0 16px 36px rgba(0,0,0,.26)}
+    button{border:1px solid var(--border);background:var(--panel2);color:var(--text);border-radius:8px;padding:9px 10px;cursor:pointer;font-size:13px} button:hover{border-color:var(--accent);background:#1a304b}.primary{background:linear-gradient(180deg,#2563eb,#1d4ed8);border-color:#60a5fa;color:white}.danger{border-color:#7f1d1d;color:#fecaca;background:#281923}.stack{display:grid;gap:8px}
+    .scenario-grid{display:grid;gap:7px}.scenario-grid button{text-align:left}.scenario-grid button.active{border-color:var(--accent);background:#12324a}.control{margin:10px 0}.control label{display:flex;justify-content:space-between;gap:10px;margin-bottom:6px;color:#cbd5e1;font-size:12px}.control input[type=range]{width:100%;accent-color:#38bdf8}.toggles{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0}.toggle{display:flex;gap:8px;align-items:center;border:1px solid var(--border);padding:8px;border-radius:8px;background:#0b1220;color:#cbd5e1}.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.metric{background:var(--panel2);border:1px solid var(--border);border-radius:9px;padding:10px}.metric strong{display:block;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px}.metric span{font-size:20px;font-weight:700}.badge{display:inline-flex;align-items:center;border:1px solid var(--border);border-radius:999px;padding:3px 8px;background:#0b1220;color:#cbd5e1;font-size:12px;line-height:1.2}.good{color:var(--green);border-color:#166534}.warn{color:var(--yellow);border-color:#92400e}.bad{color:#fca5a5;border-color:#7f1d1d}.muted{color:var(--muted)}
+    .score-row{display:grid;grid-template-columns:170px minmax(0,1fr) 48px;gap:8px;align-items:center;margin:7px 0;color:#cbd5e1;font-size:12px}.bar{height:8px;background:#020617;border:1px solid var(--border);border-radius:999px;overflow:hidden}.fill{height:100%;background:linear-gradient(90deg,#0ea5e9,#38bdf8);transition:width .25s ease}.fill.warn{background:linear-gradient(90deg,#f59e0b,#facc15)}.fill.bad{background:linear-gradient(90deg,#dc2626,#fb7185)}.fill.good{background:linear-gradient(90deg,#16a34a,#86efac)}
+
+    .battle-card{padding:0;overflow:hidden}
+    .battle-toolbar{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:12px 14px;border-bottom:1px solid var(--border);background:#0b1220}.speed-control{display:flex;align-items:center;gap:8px;color:#cbd5e1;font-size:12px}.speed-control input{width:120px;accent-color:#38bdf8}
+    .battle-stage{position:relative;height:430px;overflow:hidden;background:linear-gradient(180deg,#091122 0%,#10213a 42%,#132033 64%,#080d15 100%);isolation:isolate}
+    .battle-stage:before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 70% 16%,rgba(125,211,252,.35) 0 58px,transparent 60px),radial-gradient(circle at 48% 68%,rgba(56,189,248,.08),transparent 320px);opacity:.65;z-index:0}.battle-stage:after{content:"";position:absolute;left:-10%;right:-10%;bottom:0;height:105px;background:linear-gradient(180deg,#172540,#070b12);border-top:1px solid #2d4d6b;box-shadow:0 -20px 60px rgba(14,165,233,.12);z-index:1}
+    .mountains,.mist,.runes,.effects-layer{position:absolute;inset:0;pointer-events:none}.mountains{z-index:0;background:linear-gradient(135deg,transparent 0 60%,rgba(30,41,59,.72) 61% 70%,transparent 71%) 0 210px/260px 160px repeat-x,linear-gradient(225deg,transparent 0 55%,rgba(15,23,42,.88) 56% 70%,transparent 71%) 60px 215px/310px 180px repeat-x}.mist{z-index:2;background:radial-gradient(ellipse at 25% 70%,rgba(148,163,184,.16),transparent 260px),radial-gradient(ellipse at 80% 72%,rgba(14,165,233,.12),transparent 260px);animation:mist 8s linear infinite alternate}.runes{z-index:1;background:linear-gradient(90deg,rgba(56,189,248,.04) 1px,transparent 1px),linear-gradient(0deg,rgba(56,189,248,.035) 1px,transparent 1px);background-size:42px 42px;transform:perspective(300px) rotateX(58deg) translateY(172px);height:170px;top:auto;bottom:0;opacity:.65}
+    @keyframes mist{from{transform:translateX(-15px)}to{transform:translateX(18px)}}
+    .combat-hud{position:absolute;left:14px;right:14px;top:12px;display:grid;grid-template-columns:1fr 1fr;gap:14px;z-index:8}.combatant-hud{background:rgba(2,6,23,.74);border:1px solid rgba(148,163,184,.22);border-radius:12px;padding:9px}.combatant-title{display:flex;justify-content:space-between;gap:10px;color:#dbeafe;font-size:12px;margin-bottom:6px}.hp-track{height:13px;border:1px solid #334155;background:#020617;border-radius:99px;overflow:hidden}.hp-fill{height:100%;transition:width .32s ease}.hero-hp{background:linear-gradient(90deg,#22c55e,#86efac)}.boss-hp{background:linear-gradient(90deg,#f97316,#ef4444)}
+    .stage-message{position:absolute;left:50%;top:73px;transform:translateX(-50%);z-index:9;min-width:350px;max-width:72%;text-align:center;background:rgba(2,6,23,.72);border:1px solid rgba(56,189,248,.38);box-shadow:0 8px 32px rgba(0,0,0,.45);border-radius:999px;padding:9px 16px;color:#e0f2fe;font-weight:700;letter-spacing:.01em}
+    .telemetry-strip{position:absolute;left:14px;right:14px;bottom:12px;z-index:9;display:grid;grid-template-columns:repeat(4,1fr);gap:9px}.telemetry-pill{background:rgba(2,6,23,.74);border:1px solid rgba(148,163,184,.23);border-radius:10px;padding:8px}.telemetry-pill strong{display:block;color:#94a3b8;font-size:10px;text-transform:uppercase}.telemetry-pill span{font-weight:800;color:#e5e7eb}
+    .hero,.boss{position:absolute;z-index:5;bottom:82px;transition:transform .24s ease,filter .2s ease}.hero{left:10%;width:126px;height:148px;transform:scale(var(--hero-scale));transform-origin:50% 100%;filter:drop-shadow(0 16px 18px rgba(0,0,0,.45))}.boss{right:7%;width:232px;height:192px;transform:scale(var(--boss-scale));transform-origin:50% 100%;filter:drop-shadow(0 18px 22px rgba(0,0,0,.5))}
+    .hero .cape{position:absolute;left:12px;top:44px;width:62px;height:92px;background:linear-gradient(180deg,#b91c1c,#7f1d1d 65%,#1f2937);clip-path:polygon(30% 0,100% 18%,82% 100%,0 88%);opacity:.94;filter:drop-shadow(0 10px 10px rgba(0,0,0,.35))}.hero .body{position:absolute;left:38px;top:45px;width:44px;height:62px;background:linear-gradient(180deg,#d6b14b 0%,#9a6b1a 46%,#6b3f15 100%);border:2px solid #fde68a;border-radius:18px 18px 9px 9px;box-shadow:inset 0 0 0 3px rgba(120,53,15,.45)}.hero .body::after{content:"";position:absolute;left:8px;right:8px;top:12px;height:20px;background:linear-gradient(180deg,rgba(254,243,199,.65),rgba(120,53,15,.15));clip-path:polygon(18% 0,82% 0,100% 40%,82% 100%,18% 100%,0 40%)}.hero .head{position:absolute;left:44px;top:18px;width:31px;height:31px;border-radius:50%;background:#f5c16c;border:2px solid #fff7ed}.hero .helm{position:absolute;left:34px;top:8px;width:50px;height:28px;background:linear-gradient(180deg,#fef3c7,#a16207 70%,#713f12);clip-path:polygon(5% 74%,18% 26%,40% 34%,50% 0,60% 34%,82% 26%,95% 74%,74% 100%,26% 100%);box-shadow:0 0 0 2px rgba(253,186,116,.25)}.hero .plume{position:absolute;left:41px;top:-12px;width:34px;height:31px;background:linear-gradient(180deg,#ef4444,#991b1b);clip-path:polygon(50% 0,72% 18%,85% 70%,50% 100%,15% 70%,28% 18%);filter:drop-shadow(0 5px 4px rgba(0,0,0,.3))}.hero .shield-arm{position:absolute;left:30px;top:60px;width:26px;height:12px;border-radius:999px;background:#d6a45d;transform:rotate(4deg);transform-origin:right center}.hero .weapon-arm{position:absolute;left:74px;top:58px;width:34px;height:12px;border-radius:999px;background:#d6a45d;transform:rotate(-20deg);transform-origin:left center;z-index:3}.hero .weapon-arm::after{content:"";position:absolute;right:-4px;top:1px;width:10px;height:10px;border-radius:50%;background:#e5b769;box-shadow:0 0 0 2px rgba(120,53,15,.35)}.hero .weapon{position:absolute;left:101px;top:49px;width:70px;height:8px;background:linear-gradient(90deg,#fefce8,#dbeafe,#94a3b8);border-radius:999px;transform:rotate(-20deg);transform-origin:left center;box-shadow:0 0 14px rgba(253,186,116,.45);z-index:2}.hero .weapon::before{content:"";position:absolute;left:-11px;top:-4px;width:17px;height:16px;background:#7c2d12;border:2px solid #fbbf24;border-radius:3px}.hero .weapon::after{content:"";position:absolute;left:-17px;top:1px;width:8px;height:8px;border-radius:50%;background:#fbbf24}.hero .shield{position:absolute;left:10px;top:56px;width:42px;height:56px;background:radial-gradient(circle at 50% 44%,#fbbf24 0 12%,#b91c1c 13% 44%,#7f1d1d 45% 100%);border:2px solid #fde68a;border-radius:50% 50% 48% 48%;box-shadow:0 6px 12px rgba(0,0,0,.38);transform:rotate(-6deg);z-index:4}.hero .shield::after{content:"SPQR";position:absolute;left:0;right:0;top:22px;text-align:center;font-size:8px;font-weight:900;color:#fef3c7;letter-spacing:.03em}.hero .legs{position:absolute;left:40px;top:100px;width:44px;height:38px;background:linear-gradient(90deg,#6b3f15 0 22%,transparent 23% 33%,#7f1d1d 34% 66%,transparent 67% 77%,#6b3f15 78%);border-radius:0 0 10px 10px}.hero .legs::after{content:"";position:absolute;left:0;right:0;bottom:0;height:8px;background:linear-gradient(90deg,#fef3c7 0 43%,transparent 44% 56%,#fef3c7 57%)}.hero-aura{position:absolute;left:20px;top:8px;width:92px;height:128px;border-radius:50%;background:radial-gradient(ellipse,rgba(34,197,94,.32),transparent 70%);opacity:0;transform:scale(.8);transition:.25s}.hero.boosted .hero-aura{opacity:1;animation:pulse 1.2s ease-in-out infinite}.hero.tired{filter:grayscale(.35) drop-shadow(0 16px 18px rgba(0,0,0,.45));opacity:.82}
+    .boss .wing{position:absolute;top:40px;width:112px;height:92px;background:linear-gradient(180deg,#7f1d1d,#450a0a 75%);border:2px solid rgba(254,215,170,.35);clip-path:polygon(0 30%,48% 0,100% 38%,76% 62%,100% 100%,44% 74%,0 100%,18% 58%);opacity:.95;z-index:0}.boss .wing.left{left:18px;transform:rotate(-16deg)}.boss .wing.right{right:22px;transform:scaleX(-1) rotate(-16deg)}.boss .tail{position:absolute;left:0;top:112px;width:96px;height:18px;background:linear-gradient(90deg,#7c2d12,#b91c1c 55%,#7c2d12);border-radius:999px;transform:rotate(8deg);z-index:0}.boss .tail::after{content:"";position:absolute;left:-16px;top:-10px;width:30px;height:30px;background:linear-gradient(180deg,#f97316,#991b1b);clip-path:polygon(100% 50%,35% 0,0 50%,35% 100%)}.boss .body{position:absolute;left:76px;top:84px;width:106px;height:66px;background:linear-gradient(180deg,#b91c1c,#7f1d1d 50%,#450a0a 100%);border:2px solid #fdba74;border-radius:52px 48px 42px 34px;box-shadow:inset 0 -6px 0 rgba(0,0,0,.18)}.boss .body::after{content:"";position:absolute;left:16px;right:12px;bottom:10px;height:18px;background:linear-gradient(180deg,rgba(254,215,170,.25),rgba(0,0,0,0));border-radius:999px}.boss .neck{position:absolute;left:144px;top:58px;width:22px;height:42px;background:linear-gradient(180deg,#f97316,#7f1d1d);border:2px solid #fdba74;border-radius:18px;transform:rotate(18deg);transform-origin:50% 100%;z-index:2}.boss .head{position:absolute;left:150px;top:24px;width:62px;height:42px;background:linear-gradient(180deg,#fb923c,#991b1b 75%);border:2px solid #fed7aa;clip-path:polygon(10% 28%,48% 0,84% 8%,100% 34%,92% 66%,58% 90%,18% 88%,0 56%);border-radius:14px;z-index:3}.boss .jaw{position:absolute;left:162px;top:50px;width:48px;height:18px;background:linear-gradient(180deg,#7f1d1d,#450a0a);border:2px solid rgba(254,215,170,.6);clip-path:polygon(0 0,100% 10%,88% 100%,8% 100%);z-index:3}.boss .jaw::after{content:"";position:absolute;left:6px;right:6px;top:-2px;height:9px;background:repeating-linear-gradient(90deg,#fff7ed 0 4px,transparent 4px 8px)}.boss .horn{position:absolute;top:6px;width:26px;height:24px;background:linear-gradient(180deg,#fef3c7,#fdba74 80%);clip-path:polygon(50% 0,90% 100%,10% 100%);z-index:4}.boss .horn.left{left:160px;transform:rotate(-28deg)}.boss .horn.right{left:186px;transform:rotate(18deg)}.boss .eye{position:absolute;top:38px;width:11px;height:8px;background:#fef08a;border-radius:50%;box-shadow:0 0 14px #fef08a;z-index:4}.boss .eye.left{left:173px}.boss .eye.right{left:191px}.boss .leg{position:absolute;top:132px;width:22px;height:36px;background:linear-gradient(180deg,#7c2d12,#450a0a);border:2px solid #fdba74;border-radius:18px;z-index:1}.boss .leg.back{left:94px}.boss .leg.front{left:138px}.boss .leg::after{content:"";position:absolute;left:-1px;right:-1px;bottom:-6px;height:8px;background:linear-gradient(90deg,#fef3c7 0 20%,#7c2d12 20% 40%,#fef3c7 40% 60%,#7c2d12 60% 80%,#fef3c7 80%)}.boss .core{position:absolute;left:112px;top:100px;width:28px;height:28px;border-radius:50%;background:radial-gradient(circle,#fde68a,#ef4444 60%,transparent 70%);box-shadow:0 0 24px #ef4444;animation:pulse 1.8s infinite;z-index:2}.boss.raged .core{box-shadow:0 0 34px #f97316;animation:pulse .65s infinite}.boss.raged .eye{box-shadow:0 0 20px #f97316;background:#fdba74}.boss.weakened{filter:grayscale(.45) drop-shadow(0 18px 22px rgba(0,0,0,.5))}.boss.overpower{--boss-scale:1.12}
+    @keyframes pulse{0%,100%{transform:scale(1);opacity:.7}50%{transform:scale(1.18);opacity:1}}
+    .hero.lunge{transform:translateX(132px) scale(var(--hero-scale))}.hero.dodge{transform:translate(-42px,-8px) scale(var(--hero-scale))}.hero.hit{animation:hitHero .28s ease}.boss.hit{animation:hitBoss .28s ease}.boss.smash{transform:translateX(-76px) scale(var(--boss-scale))}.stage-shake{animation:shake .34s ease}.victory-glow{box-shadow:inset 0 0 110px rgba(34,197,94,.25)}.defeat-glow{box-shadow:inset 0 0 120px rgba(239,68,68,.25)}
+    @keyframes hitHero{0%,100%{filter:brightness(1)}50%{filter:brightness(1.9) saturate(.7)}} @keyframes hitBoss{0%,100%{filter:brightness(1)}50%{filter:brightness(1.9) saturate(.7)}} @keyframes shake{0%,100%{transform:translate(0)}20%{transform:translate(-7px,3px)}40%{transform:translate(6px,-2px)}60%{transform:translate(-3px,2px)}80%{transform:translate(5px,0)}}
+    .effect{position:absolute;z-index:7;pointer-events:none}.slash{left:45%;top:47%;width:155px;height:64px;border-top:7px solid #e0f2fe;border-radius:50%;transform:rotate(-22deg);filter:drop-shadow(0 0 12px #38bdf8);animation:slash .42s ease forwards}.slash.critical{border-top-color:#fef08a;filter:drop-shadow(0 0 18px #facc15);transform:rotate(-26deg) scale(1.2)}@keyframes slash{from{opacity:0;transform:translateX(-55px) rotate(-22deg) scale(.65)}45%{opacity:1}to{opacity:0;transform:translateX(80px) rotate(-22deg) scale(1.12)}}
+    .impact{left:28%;top:56%;width:92px;height:92px;border-radius:50%;background:radial-gradient(circle,rgba(248,113,113,.85),rgba(248,113,113,.15) 45%,transparent 70%);animation:impact .42s ease forwards}.impact.boss-side{left:66%;top:47%}@keyframes impact{from{opacity:0;transform:scale(.25)}45%{opacity:1}to{opacity:0;transform:scale(1.65)}}
+    .damage{position:absolute;z-index:10;color:#fecaca;font-weight:900;text-shadow:0 2px 0 #020617,0 0 16px rgba(239,68,68,.8);font-size:26px;animation:floatDamage .9s ease forwards}.damage.hero{left:25%;top:49%}.damage.boss{right:23%;top:37%}.damage.critical{color:#fef08a;font-size:34px;text-shadow:0 2px 0 #020617,0 0 22px rgba(250,204,21,.95)}@keyframes floatDamage{from{opacity:0;transform:translateY(12px) scale(.8)}20%{opacity:1}to{opacity:0;transform:translateY(-55px) scale(1.05)}}
+    .orb{width:22px;height:22px;border-radius:50%;background:radial-gradient(circle,#bbf7d0,#22c55e 65%,transparent);box-shadow:0 0 18px #22c55e;animation:orb 1.05s ease forwards}.orb.o1{left:32%;top:60%}.orb.o2{left:24%;top:50%;animation-delay:.12s}.orb.o3{left:38%;top:44%;animation-delay:.22s}@keyframes orb{from{opacity:0;transform:translateY(20px) scale(.5)}35%{opacity:1}to{opacity:0;transform:translateY(-75px) scale(1.25)}}
+    .coin{width:20px;height:20px;border-radius:50%;background:linear-gradient(135deg,#fef08a,#f59e0b);box-shadow:0 0 16px #f59e0b;animation:coin 1s ease forwards}.coin.c1{left:42%;top:50%}.coin.c2{left:48%;top:44%;animation-delay:.1s}.coin.c3{left:53%;top:54%;animation-delay:.2s}@keyframes coin{from{opacity:0;transform:translateY(30px) rotate(0) scale(.6)}50%{opacity:1}to{opacity:0;transform:translateY(-80px) rotate(280deg) scale(1.15)}}
+    .beam{left:58%;top:41%;width:220px;height:26px;background:linear-gradient(90deg,rgba(56,189,248,0),rgba(56,189,248,.9),rgba(250,204,21,.75));border-radius:999px;filter:blur(.5px) drop-shadow(0 0 16px #38bdf8);animation:beam .55s ease forwards}@keyframes beam{from{opacity:0;transform:scaleX(.1)}35%{opacity:1}to{opacity:0;transform:scaleX(1.2)}}
+    .result-overlay{position:absolute;inset:0;z-index:12;display:grid;place-items:center;background:rgba(2,6,23,.28);font-weight:900;font-size:44px;letter-spacing:.08em;text-transform:uppercase;text-shadow:0 4px 0 #020617;animation:resultPop 1.05s ease forwards}.result-overlay.win{color:#bbf7d0}.result-overlay.loss{color:#fecaca}@keyframes resultPop{from{opacity:0;transform:scale(.8)}25%{opacity:1;transform:scale(1.06)}to{opacity:0;transform:scale(1)}}
+    .timeline{min-height:88px;max-height:170px;overflow:auto;background:#0b1220;border:1px solid var(--border);border-radius:8px;padding:9px}.event{border-left:3px solid var(--accent);padding:6px 8px;margin-bottom:7px;background:#111827;color:#cbd5e1;font-size:12px}.chart{background:#0b1220;border:1px solid var(--border);border-radius:9px;padding:10px;margin-top:10px}.chart svg{width:100%;height:170px;display:block}.chart-title{display:flex;justify-content:space-between;color:#cbd5e1;font-weight:700;font-size:13px}.legend{display:flex;gap:10px;flex-wrap:wrap;color:var(--muted);font-size:12px;margin-top:6px}.dot{width:9px;height:9px;border-radius:50%;display:inline-block;background:var(--accent)}.dot.warn{background:var(--yellow)}.dot.bad{background:var(--red)}table{width:100%;border-collapse:collapse;margin-top:10px}th,td{border-bottom:1px solid var(--border);padding:7px;text-align:left;font-size:12px}th{color:#cbd5e1;background:#172033}pre{white-space:pre-wrap;word-break:break-word;background:var(--code);border:1px solid var(--border);border-radius:8px;padding:10px;color:#dbeafe;max-height:250px;overflow:auto;font-size:12px}.linkbar{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}.linkbar a{color:#bae6fd;text-decoration:none;border:1px solid var(--border);border-radius:999px;padding:5px 9px;background:#0b1220}@media(max-width:1180px){.layout{grid-template-columns:1fr}.grid3{grid-template-columns:1fr 1fr}.grid2{grid-template-columns:1fr}.combat-hud{grid-template-columns:1fr}.telemetry-strip{grid-template-columns:1fr 1fr}.stage-message{min-width:0;width:86%;top:112px}.boss{right:4%}.hero{left:7%}}
+      .ops-console-wrap{margin:0 14px 18px;background:linear-gradient(180deg,var(--panel),#0a1220);border:1px solid var(--border);border-radius:12px;box-shadow:0 16px 36px rgba(0,0,0,.26);overflow:hidden}.ops-console-head{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:14px;border-bottom:1px solid var(--border);background:#0b1220}.ops-console-head h2{margin:0}.ops-console-frame{display:block;width:100%;height:1120px;border:0;background:#07111f}.ops-console-link{color:#bae6fd;text-decoration:none;border:1px solid var(--border);border-radius:999px;padding:5px 9px;background:#0b1220;font-size:12px}@media(max-width:720px){.ops-console-frame{height:1320px}.ops-console-head{display:block}.ops-console-link{display:inline-block;margin-top:8px}}
+      .view-toggle{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.view-toggle button,.view-toggle .tab-link{min-height:34px;border-radius:999px;padding:7px 12px;display:inline-flex;align-items:center;text-decoration:none;color:var(--text);border:1px solid var(--border);background:var(--panel2);font-size:13px}.view-toggle button.active{border-color:var(--accent);background:#12324a;color:white}.view-panel{display:block}.view-panel.hidden{display:none}.ops-console-wrap{margin:14px;background:linear-gradient(180deg,var(--panel),#0a1220);border:1px solid var(--border);border-radius:12px;box-shadow:0 16px 36px rgba(0,0,0,.26);overflow:hidden}.ops-console-frame{display:block;width:100%;height:calc(100vh - 170px);min-height:820px;border:0;background:#07111f}      .first-console{margin-top:12px;display:grid;grid-template-columns:320px minmax(0,1fr);gap:12px;align-items:start}.first-card{background:#0b1220;border:1px solid var(--border);border-radius:12px;padding:12px}.first-card h2{font-size:15px;margin:0 0 10px}.mode-toggle{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:8px 0}.mode-toggle button{text-align:center;min-height:38px}.mode-toggle button.active{border-color:var(--accent);background:#12324a;color:white}.mode-note{color:var(--muted);font-size:12px;line-height:1.35}.first-chat{display:grid;grid-template-columns:minmax(0,1fr) 150px;gap:8px;align-items:stretch}.first-chat textarea{display:block;width:100%;min-height:82px;max-height:160px;resize:vertical;margin-top:8px}.first-chat-log{min-height:74px;max-height:118px;overflow:auto;border:1px solid var(--border);border-radius:8px;background:#07111f;padding:8px;color:#cbd5e1;font-size:12px}.first-quick{display:grid;grid-template-columns:1fr;gap:7px}.first-quick button{width:100%;min-height:58px;text-align:center;justify-content:center}.first-chat textarea{min-height:74px;resize:vertical}.first-chat-log{min-height:74px;max-height:116px;overflow:auto;border:1px solid var(--border);border-radius:8px;background:#07111f;padding:8px;color:#cbd5e1;font-size:12px}.first-msg{margin:0 0 7px;padding:7px;border-radius:7px;background:#111f35}.first-msg.user{background:#1d2d42;color:white}.first-quick{display:grid;gap:6px}.first-quick button{min-height:31px;padding:6px 8px}.first-status{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px}@media(max-width:900px){.first-console{grid-template-columns:1fr}.first-chat{grid-template-columns:1fr}}      /* UI repair pass: smoother dragon, readable replay labels, stable first-page chat. */
+    .boss{width:270px;height:220px;right:5%}
+    .boss .wing{top:22px;width:150px;height:132px;border-radius:0;clip-path:polygon(0 56%,15% 12%,46% 34%,68% 0,84% 38%,100% 18%,91% 72%,99% 100%,58% 82%,24% 100%);background:radial-gradient(ellipse at 42% 36%,#fb923c 0 10%,#991b1b 33%,#3b0707 78%);transform-origin:82% 78%;filter:drop-shadow(0 14px 16px rgba(0,0,0,.34))}
+    .boss .wing::after{content:"";position:absolute;inset:18px 18px 18px 28px;border-top:3px solid rgba(253,186,116,.45);border-left:3px solid rgba(253,186,116,.38);transform:skew(-18deg);opacity:.75}
+    .boss .wing.left{left:-6px;transform:rotate(-20deg) skewY(-6deg)}.boss .wing.right{right:-4px;transform:scaleX(-1) rotate(-20deg) skewY(-6deg)}
+    .boss .body{left:70px;top:88px;width:138px;height:82px;border-radius:64% 50% 54% 44% / 58% 54% 46% 42%;background:radial-gradient(ellipse at 64% 34%,#fb923c 0 13%,#b91c1c 42%,#4a0a0a 100%);border-color:rgba(253,186,116,.78)}
+    .boss .neck{left:158px;top:58px;width:34px;height:58px;border-radius:55% 45% 45% 55%;transform:rotate(22deg)}
+    .boss .head{left:158px;top:10px;width:86px;height:72px;border-radius:48% 52% 46% 50%;clip-path:none;background:radial-gradient(circle at 60% 42%,#fb923c 0 18%,#b91c1c 50%,#6f1111 100%)}
+    .boss .jaw{left:168px;top:59px;width:72px;height:27px;border-radius:0 0 28px 28px;clip-path:polygon(0 0,100% 5%,88% 100%,10% 94%)}
+    .boss .jaw::after{left:8px;right:8px;top:-2px;height:13px;background:repeating-linear-gradient(90deg,#fff7ed 0 5px,transparent 5px 10px)}
+    .boss .horn{top:-2px;width:34px;height:36px}.boss .horn.left{left:162px;transform:rotate(-30deg)}.boss .horn.right{left:210px;transform:rotate(30deg)}
+    .boss .eye{top:38px;width:14px;height:11px}.boss .eye.left{left:183px}.boss .eye.right{left:213px}
+    .boss .tail{width:126px;height:22px;border-radius:80% 20% 65% 35%;transform:rotate(12deg)}
+    .boss .leg{border-radius:60% 40% 35% 35%;height:38px}.boss .leg.back{left:100px}.boss .leg.front{left:152px}.boss .core{left:124px;top:108px;width:28px;height:28px;opacity:.86}
+    .damage{max-width:190px;text-align:center;line-height:1.1;font-size:18px;white-space:normal;animation:floatDamage 2.2s ease forwards}.damage.critical{font-size:20px}.damage.hero{left:18%;top:47%}.damage.boss{right:17%;top:34%}
+    @keyframes floatDamage{from{opacity:0;transform:translateY(12px) scale(.92)}18%{opacity:1}72%{opacity:1}to{opacity:0;transform:translateY(-48px) scale(1.02)}}
+    .stage-message{transition:opacity .25s ease;line-height:1.25}.timeline .event strong{color:#e0f2fe}.chart svg circle{filter:drop-shadow(0 0 4px rgba(56,189,248,.45))}
+    .first-chat{grid-template-columns:minmax(0,1fr) 150px!important;align-items:stretch!important}.first-chat textarea{display:block!important;width:100%!important;min-height:92px!important;max-height:170px!important;margin-top:8px!important}.first-chat-log{min-height:86px!important;max-height:132px!important}.first-quick{display:grid!important;grid-template-columns:1fr!important;gap:7px!important}.first-quick button{width:100%!important;min-height:58px!important;text-align:center!important}  
+    .workflow-guide{border:1px solid #1d4ed8;background:#081b34;border-radius:10px;padding:10px;margin:0 0 12px;color:#cbd5e1}
+    .workflow-guide strong{display:block;color:#e0f2fe;margin-bottom:6px}.workflow-steps{display:grid;gap:6px;margin-top:8px}.workflow-step{display:grid;grid-template-columns:24px 1fr;gap:7px;align-items:start;font-size:12px}.workflow-num{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:999px;border:1px solid var(--accent);color:var(--accent);font-weight:700;background:#061423}.workflow-status{margin-top:8px;border:1px solid var(--border);background:#0b1220;border-radius:8px;padding:8px;color:#e0f2fe;font-size:12px;line-height:1.35}.control-button-grid{display:grid;gap:8px}.control-button-grid button{text-align:left}.control-button-grid button.primary{text-align:left}.control-button-grid small{display:block;color:#cbd5e1;margin-top:3px;font-weight:400;line-height:1.25}.agent-path-card{border:1px solid var(--border);border-radius:9px;background:#0b1220;padding:10px;margin-top:8px}.trace-step{display:grid;grid-template-columns:26px 1fr;gap:8px;border-left:3px solid var(--accent);background:#111f35;border-radius:8px;padding:8px;margin:7px 0}.trace-step.red{border-left-color:var(--red);background:#25131a}.trace-step.purple{border-left-color:var(--purple)}.trace-step.green{border-left-color:var(--green)}.trace-step.cyan{border-left-color:#22d3ee}.trace-step.blue{border-left-color:#38bdf8}.trace-num{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:999px;border:1px solid currentColor;font-weight:800}.trace-title{font-weight:800;color:#e0f2fe}.trace-body{color:#cbd5e1;font-size:12px;line-height:1.35}.frustration-list{display:grid;gap:6px}.frustration-row{display:grid;grid-template-columns:minmax(120px,1fr) 50px 44px;gap:7px;align-items:center;font-size:12px;color:#cbd5e1}.ops-merged{margin:14px;padding:0;overflow:hidden}.ops-merged-head{padding:14px;border-bottom:1px solid var(--border);background:#0b1220}.ops-merged-frame{width:100%;height:1250px;border:0;background:#0f172a;display:block}.anchor-note{color:var(--muted);font-size:12px;margin-top:6px}
+    /* Toned-down antagonist: darker palette, smaller glow, less toy-like facial detail. */
+    .boss .wing{background:radial-gradient(ellipse at 42% 36%,#7f1d1d 0 12%,#451a1a 42%,#16070a 82%)!important;border-color:rgba(148,163,184,.34)!important;filter:drop-shadow(0 18px 18px rgba(0,0,0,.42))!important}
+    .boss .wing::after{border-top-color:rgba(148,163,184,.34)!important;border-left-color:rgba(148,163,184,.24)!important;opacity:.72!important}
+    .boss .body{background:radial-gradient(ellipse at 64% 34%,#7f1d1d 0 16%,#3f1216 48%,#16070a 100%)!important;border-color:rgba(148,163,184,.42)!important}
+    .boss .neck{background:linear-gradient(180deg,#6b1f1f,#2a0b10)!important;border-color:rgba(148,163,184,.42)!important}
+    .boss .head{background:radial-gradient(circle at 60% 42%,#7f1d1d 0 18%,#3f1216 54%,#19070a 100%)!important;border-color:rgba(148,163,184,.46)!important}
+    .boss .jaw{border-radius:0 0 18px 18px!important;background:linear-gradient(180deg,#301016,#120509)!important;border-color:rgba(148,163,184,.4)!important}
+    .boss .jaw::after{left:9px!important;right:9px!important;top:-1px!important;height:9px!important;background:linear-gradient(90deg,transparent 0 8%,rgba(226,232,240,.68) 8% 16%,transparent 16% 27%,rgba(226,232,240,.68) 27% 35%,transparent 35% 48%,rgba(226,232,240,.68) 48% 56%,transparent 56% 69%,rgba(226,232,240,.68) 69% 77%,transparent 77%)!important}
+    .boss .horn{background:linear-gradient(180deg,#cbd5e1,#64748b 80%)!important}
+    .boss .eye{width:11px!important;height:7px!important;background:#fca5a5!important;box-shadow:0 0 10px rgba(248,113,113,.55)!important}
+    .boss .leg{background:linear-gradient(180deg,#321018,#13060a)!important;border-color:rgba(148,163,184,.36)!important}
+    .boss .core{width:22px!important;height:22px!important;opacity:.55!important;background:radial-gradient(circle,#fca5a5,#7f1d1d 62%,transparent 72%)!important;box-shadow:0 0 16px rgba(127,29,29,.65)!important}
+    .replay-control-strip{display:grid;grid-template-columns:minmax(180px,1.2fr) repeat(4,minmax(120px,1fr));gap:10px;align-items:stretch;padding:12px 14px;border-bottom:1px solid var(--border);background:#08111f}
+    .replay-control-strip button{display:flex;align-items:center;justify-content:center;gap:8px;text-align:center;font-weight:700;min-height:48px}
+    .replay-control-strip button small{display:none}
+    .replay-play{background:linear-gradient(180deg,#16a34a,#15803d)!important;border-color:#86efac!important;color:white!important;font-size:15px!important}
+    .play-triangle{width:0;height:0;border-top:8px solid transparent;border-bottom:8px solid transparent;border-left:13px solid currentColor;display:inline-block}
+    .replay-speed{border:1px solid var(--border);border-radius:8px;background:#0b1220;padding:8px;color:#cbd5e1;font-size:12px;display:grid;gap:5px}
+    .replay-speed label{display:flex;justify-content:space-between;gap:10px}.replay-speed input{width:100%;accent-color:#38bdf8}
+    @media(max-width:1180px){.replay-control-strip{grid-template-columns:1fr 1fr}.replay-speed{grid-column:1/-1}}
+    @media(max-width:720px){.replay-control-strip{grid-template-columns:1fr}}
+    .ops-status-strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;padding:14px;background:#08111f;border-bottom:1px solid var(--border)}
+    .ops-status-card{border:1px solid var(--border);border-radius:8px;background:#0b1220;padding:10px;min-width:0;overflow-wrap:anywhere}.ops-status-card strong{display:block;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px}.ops-status-card span{display:block;font-weight:800;color:#e5e7eb;line-height:1.25}
+    .ops-native-layout{display:grid;grid-template-columns:300px minmax(0,1fr) 340px;gap:14px;padding:14px;align-items:start}.ops-panel,.ops-raw-panel{background:linear-gradient(180deg,var(--panel),#0a1220);border:1px solid var(--border);border-radius:12px;padding:14px;box-shadow:0 16px 36px rgba(0,0,0,.22)}
+    .ops-tool-grid{display:grid;grid-template-columns:1fr;gap:8px}.ops-tool-grid button{text-align:left}.ops-result-title{display:flex;justify-content:space-between;gap:10px;align-items:center;border-bottom:1px solid var(--border);padding-bottom:10px;margin-bottom:12px}.ops-result-title h2{margin:0}.ops-results-panel .agent-flow{margin-top:0}.ops-raw-panel{margin:0 14px 14px}#opsAgentInput{display:block;width:100%;min-height:92px;margin-top:8px;border:1px solid var(--border);border-radius:8px;background:#07111f;color:var(--text);padding:9px;font-family:Arial,Helvetica,sans-serif;resize:vertical}.ops-mini-table{width:100%;border-collapse:collapse}.ops-mini-table th,.ops-mini-table td{border-bottom:1px solid var(--border);padding:7px;text-align:left;font-size:12px;vertical-align:top}.ops-mini-table th{color:#cbd5e1;background:#172033}.ops-panel .first-chat-log{min-height:84px;max-height:160px}.ops-panel .first-msg{font-size:12px}.ops-panel button.primary{text-align:center}
+    @media(max-width:1180px){.ops-native-layout{grid-template-columns:1fr}.ops-status-strip{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:720px){.ops-status-strip{grid-template-columns:1fr}.ops-native-layout{padding:12px}}
+    .ops-decision-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:10px 0 14px}.ops-decision-card{border:1px solid var(--border);border-radius:9px;background:#0b1220;padding:10px;min-width:0}.ops-decision-card strong{display:block;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px}.ops-decision-card span{font-size:18px;font-weight:800;color:#e5e7eb}.ops-policy-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(260px,.85fr);gap:12px;align-items:start}.ops-score-list{border:1px solid var(--border);border-radius:9px;background:#0b1220;padding:10px}.ops-score-list h3{margin-top:0}.ops-score-row{display:grid;grid-template-columns:175px minmax(0,1fr) 58px;gap:8px;align-items:center;margin:8px 0;color:#cbd5e1;font-size:12px}.ops-block-list{display:grid;gap:8px}.ops-block-item{border:1px solid #7f1d1d;border-radius:8px;background:#25131a;padding:10px;color:#fecaca}.ops-path-list{display:grid;gap:8px;margin-top:10px}.ops-path-step{display:grid;grid-template-columns:30px minmax(0,1fr);gap:8px;border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:8px;background:#0b1220;padding:9px}.ops-path-step.red{border-left-color:var(--red);background:#25131a}.ops-path-step.green{border-left-color:var(--green)}.ops-path-step.purple{border-left-color:var(--purple)}.ops-path-step strong{display:block;color:#e0f2fe;margin-bottom:3px}.ops-path-step span{color:#cbd5e1;font-size:12px;line-height:1.35}.ops-step-num{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:999px;border:1px solid currentColor;color:var(--accent);font-weight:800}.ops-path-step.red .ops-step-num{color:var(--red)}.ops-path-step.green .ops-step-num{color:var(--green)}.ops-path-step.purple .ops-step-num{color:var(--purple)}@media(max-width:1180px){.ops-decision-grid,.ops-policy-grid{grid-template-columns:1fr 1fr}}@media(max-width:720px){.ops-decision-grid,.ops-policy-grid{grid-template-columns:1fr}.ops-score-row{grid-template-columns:1fr}}
+    .ops-impact-cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:12px 0 14px}.ops-impact-card{border:1px solid var(--border);border-radius:9px;background:#0b1220;padding:10px;min-height:112px}.ops-impact-card strong{display:block;color:#e0f2fe;margin-bottom:4px}.ops-impact-card .value{font-size:22px;font-weight:900;color:#e5e7eb}.ops-impact-card .sub{display:block;color:#cbd5e1;font-size:12px;line-height:1.35;margin-top:5px}.ops-impact-card.churn{border-color:#7f1d1d;background:#1d1118}.ops-impact-card.frustration{border-color:#92400e;background:#1d180b}.ops-impact-card.win{border-color:#075985;background:#071824}.ops-impact-card.retention{border-color:#166534;background:#071a12}@media(max-width:1180px){.ops-impact-cards{grid-template-columns:1fr 1fr}}@media(max-width:720px){.ops-impact-cards{grid-template-columns:1fr}}
+
+    .global-status{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;padding:12px 14px;background:#050b14;border-bottom:1px solid var(--border);position:relative;z-index:20}.global-status-card{border:1px solid var(--border);border-radius:8px;background:#0b1220;padding:9px;min-width:0}.global-status-card strong{display:block;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px}.global-status-card span{display:block;color:#e5e7eb;font-weight:800;line-height:1.2;overflow-wrap:anywhere}
+    .trajectory-section{margin:14px}.trajectory-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px}.trajectory-card{border:1px solid var(--border);border-radius:9px;background:#0b1220;padding:10px;min-height:178px}.trajectory-card.today{border-color:var(--accent);background:#081b34}.trajectory-card.predicted{border-color:#166534;background:#071a12}.trajectory-card strong{display:flex;justify-content:space-between;gap:8px;color:#e0f2fe;margin-bottom:8px}.trajectory-card .why{color:#cbd5e1;font-size:12px;line-height:1.35;margin:7px 0}.trajectory-bars{display:grid;gap:6px}.trajectory-bars label{display:grid;grid-template-columns:72px 46px minmax(0,1fr);gap:6px;align-items:center;color:var(--muted);font-size:11px}.trajectory-tooltip{position:absolute;pointer-events:none;display:none;z-index:50;max-width:260px;border:1px solid var(--border);border-radius:8px;background:#020617;color:#dbeafe;padding:9px;font-size:12px;box-shadow:0 12px 32px rgba(0,0,0,.42)}.trajectory-card:hover{border-color:#38bdf8}.dataset-summary{margin:14px}.dataset-fields{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}.dataset-fields span{border:1px solid var(--border);border-radius:999px;background:#0b1220;color:#cbd5e1;padding:4px 8px;font-size:12px}
+
+    /* Character polish pass: ornate fighter and intricate, less toy-like monster. */
+    .hero{width:140px;height:164px;left:9%;filter:drop-shadow(0 18px 20px rgba(0,0,0,.52)) drop-shadow(0 0 16px rgba(56,189,248,.12))}
+    .hero .cape{left:7px;top:42px;width:76px;height:106px;background:linear-gradient(135deg,#3b0710 0%,#991b1b 48%,#111827 100%);clip-path:polygon(28% 0,100% 15%,88% 96%,50% 86%,9% 100%,0 31%);border-left:2px solid rgba(251,191,36,.62);filter:drop-shadow(0 13px 13px rgba(0,0,0,.42))}
+    .hero .cape::after{content:"";position:absolute;inset:9px 12px 14px 18px;border-left:2px solid rgba(254,243,199,.42);border-bottom:2px solid rgba(251,191,36,.35);clip-path:polygon(0 0,100% 13%,78% 100%,0 82%)}
+    .hero .head{left:48px;top:19px;width:33px;height:33px;background:radial-gradient(circle at 58% 36%,#ffe0a3 0 28%,#c9823d 70%,#7c2d12 100%);border-color:#fde68a;box-shadow:inset 0 -5px 0 rgba(120,53,15,.2)}
+    .hero .head::after{content:"";position:absolute;left:6px;right:6px;top:13px;height:3px;border-radius:999px;background:linear-gradient(90deg,transparent,#0f172a 22% 39%,transparent 40% 60%,#0f172a 61% 78%,transparent)}
+    .hero .helm{left:35px;top:6px;width:61px;height:35px;background:linear-gradient(180deg,#fff7ed 0%,#fbbf24 28%,#92400e 76%,#451a03 100%);clip-path:polygon(2% 76%,14% 31%,34% 27%,50% 0,66% 27%,86% 31%,98% 76%,80% 100%,20% 100%);box-shadow:inset 0 -4px 0 rgba(69,26,3,.3),0 0 0 2px rgba(253,224,71,.24)}
+    .hero .helm::after{content:"";position:absolute;left:17px;right:17px;bottom:4px;height:7px;border-radius:0 0 999px 999px;background:linear-gradient(90deg,#1e293b,#475569,#1e293b);box-shadow:0 0 0 1px rgba(15,23,42,.45)}
+    .hero .plume{left:44px;top:-18px;width:43px;height:39px;background:linear-gradient(180deg,#fef3c7 0 10%,#ef4444 11% 62%,#7f1d1d 100%);clip-path:polygon(50% 0,66% 11%,82% 34%,89% 72%,50% 100%,11% 72%,18% 34%,34% 11%);filter:drop-shadow(0 6px 6px rgba(0,0,0,.38))}
+    .hero .body{left:39px;top:49px;width:53px;height:70px;background:linear-gradient(180deg,#fff7ed 0%,#eab308 13%,#b45309 46%,#3f1d0b 100%);border-color:#fde68a;border-radius:23px 23px 11px 11px;box-shadow:inset 0 0 0 3px rgba(69,26,3,.45),inset 0 18px 18px rgba(255,255,255,.16),0 0 18px rgba(251,191,36,.12)}
+    .hero .body::before{content:"";position:absolute;left:9px;right:9px;top:9px;height:43px;background:linear-gradient(90deg,transparent 0 44%,rgba(254,243,199,.78) 45% 55%,transparent 56%),repeating-linear-gradient(135deg,rgba(254,243,199,.22) 0 5px,transparent 5px 10px);clip-path:polygon(18% 0,82% 0,100% 33%,78% 100%,22% 100%,0 33%)}
+    .hero .body::after{left:12px;right:12px;top:16px;height:27px;background:radial-gradient(circle at 50% 46%,rgba(254,243,199,.85) 0 18%,rgba(120,53,15,.18) 20% 100%);border:1px solid rgba(254,243,199,.35);clip-path:polygon(18% 0,82% 0,100% 40%,82% 100%,18% 100%,0 40%)}
+    .hero .shield-arm,.hero .weapon-arm{background:linear-gradient(180deg,#fcd34d,#9a3412);box-shadow:inset 0 0 0 1px rgba(254,243,199,.34)}
+    .hero .weapon{left:107px;top:48px;width:86px;height:7px;background:linear-gradient(90deg,#fefce8,#bae6fd 42%,#64748b);box-shadow:0 0 16px rgba(186,230,253,.58);border-radius:999px}
+    .hero .weapon::before{left:-13px;top:-5px;width:20px;height:18px;background:radial-gradient(circle,#fde68a 0 30%,#7c2d12 32% 100%);border-color:#facc15}
+    .hero .weapon::after{left:50px;top:-2px;width:30px;height:2px;border-radius:999px;background:rgba(255,255,255,.74);box-shadow:none}
+    .hero .shield{left:8px;top:58px;width:48px;height:63px;background:radial-gradient(circle at 50% 42%,#fff7ed 0 8%,#fbbf24 9% 18%,#7f1d1d 19% 44%,#450a0a 45% 100%);border:3px solid #fde68a;border-radius:52% 52% 48% 48%;box-shadow:inset 0 0 0 3px rgba(251,191,36,.18),0 8px 16px rgba(0,0,0,.42)}
+    .hero .shield::before{content:"";position:absolute;inset:8px;border:1px solid rgba(254,243,199,.55);border-radius:50% 50% 45% 45%;background:linear-gradient(90deg,transparent 0 46%,rgba(254,243,199,.5) 47% 53%,transparent 54%)}
+    .hero .shield::after{content:"V";top:22px;font-size:13px;color:#fde68a;text-shadow:0 1px 0 #451a03}
+    .hero .legs{left:41px;top:109px;width:52px;height:43px;background:linear-gradient(90deg,#4a240d 0 23%,transparent 24% 34%,#7f1d1d 35% 65%,transparent 66% 76%,#4a240d 77%);box-shadow:inset 0 9px 0 rgba(251,191,36,.18)}
+    .boss{width:292px;height:232px;right:4%;filter:drop-shadow(0 22px 24px rgba(0,0,0,.62)) drop-shadow(0 0 18px rgba(248,113,113,.12))}
+    .boss .wing{top:18px;width:164px;height:142px;background:radial-gradient(ellipse at 42% 32%,#991b1b 0 9%,#4c1217 42%,#080407 88%)!important;border-color:rgba(203,213,225,.44)!important;clip-path:polygon(0 58%,13% 9%,42% 31%,64% 0,82% 38%,100% 15%,91% 73%,100% 100%,58% 82%,22% 100%);filter:drop-shadow(0 18px 19px rgba(0,0,0,.48))!important}
+    .boss .wing::before{content:"";position:absolute;inset:19px 16px 16px 24px;background:repeating-linear-gradient(112deg,rgba(248,113,113,.2) 0 2px,transparent 2px 18px);clip-path:inherit;opacity:.72}
+    .boss .wing::after{inset:16px 19px 18px 26px;border-top:3px solid rgba(203,213,225,.36)!important;border-left:3px solid rgba(203,213,225,.3)!important;border-bottom:1px solid rgba(248,113,113,.22);transform:skew(-16deg);opacity:.88!important}
+    .boss .wing.left{left:-16px;transform:rotate(-21deg) skewY(-6deg)}.boss .wing.right{right:-13px;transform:scaleX(-1) rotate(-21deg) skewY(-6deg)}
+    .boss .tail{left:-10px;top:126px;width:145px;height:20px;background:linear-gradient(90deg,#090407,#3f1216 45%,#7f1d1d 74%,#1f0609);border:1px solid rgba(203,213,225,.26);box-shadow:inset 0 5px 0 rgba(255,255,255,.06)}
+    .boss .tail::after{left:-22px;top:-13px;width:36px;height:36px;background:linear-gradient(180deg,#cbd5e1,#7f1d1d 45%,#120509)}
+    .boss .body{left:73px;top:88px;width:150px;height:88px;background:radial-gradient(ellipse at 62% 28%,#9f1239 0 10%,#4c1217 38%,#0b0508 100%)!important;border-color:rgba(203,213,225,.46)!important;box-shadow:inset 0 0 0 1px rgba(248,113,113,.12),inset 0 -13px 24px rgba(0,0,0,.42)}
+    .boss .body::before{content:"";position:absolute;inset:9px 15px 22px 18px;background:repeating-radial-gradient(circle at 38% 45%,rgba(203,213,225,.23) 0 2px,transparent 3px 11px);clip-path:polygon(7% 27%,61% 0,100% 28%,88% 100%,25% 86%);opacity:.62}
+    .boss .body::after{left:24px;right:16px;bottom:13px;height:22px;background:linear-gradient(90deg,transparent,rgba(248,113,113,.22),transparent),repeating-linear-gradient(90deg,rgba(203,213,225,.2) 0 2px,transparent 2px 13px);border-radius:999px}
+    .boss .neck{left:169px;top:57px;width:38px;height:63px;background:linear-gradient(180deg,#5f151b,#16070a)!important;border-color:rgba(203,213,225,.4)!important;box-shadow:inset 7px 0 0 rgba(255,255,255,.06)}
+    .boss .head{left:169px;top:7px;width:91px;height:75px;background:radial-gradient(circle at 62% 36%,#991b1b 0 13%,#45121a 48%,#090407 100%)!important;border-color:rgba(203,213,225,.54)!important;border-radius:54% 38% 48% 42%;box-shadow:inset -9px -8px 0 rgba(0,0,0,.25)}
+    .boss .head::after{content:"";position:absolute;left:13px;right:18px;top:18px;height:25px;background:repeating-linear-gradient(135deg,rgba(203,213,225,.22) 0 3px,transparent 3px 10px);clip-path:polygon(0 18%,78% 0,100% 45%,74% 100%,12% 82%);opacity:.65}
+    .boss .jaw{left:180px;top:59px;width:76px;height:30px;background:linear-gradient(180deg,#220a10,#070304)!important;border-color:rgba(203,213,225,.46)!important;border-radius:0 0 22px 22px!important}
+    .boss .jaw::after{left:8px!important;right:8px!important;height:12px!important;background:linear-gradient(90deg,transparent 0 5%,#e2e8f0 6% 13%,transparent 14% 23%,#e2e8f0 24% 31%,transparent 32% 45%,#e2e8f0 46% 53%,transparent 54% 68%,#e2e8f0 69% 76%,transparent 77%)!important;opacity:.9}
+    .boss .horn{top:-6px;width:38px;height:43px;background:linear-gradient(180deg,#f8fafc,#94a3b8 54%,#334155 100%)!important;filter:drop-shadow(0 3px 3px rgba(0,0,0,.45))}
+    .boss .horn.left{left:172px;transform:rotate(-34deg)}.boss .horn.right{left:226px;transform:rotate(31deg)}
+    .boss .eye{top:38px;width:13px!important;height:7px!important;background:#fecaca!important;border-radius:999px;box-shadow:0 0 14px rgba(248,113,113,.9),0 0 2px #fff!important}.boss .eye.left{left:197px}.boss .eye.right{left:229px}
+    .boss .leg{top:144px;width:25px;height:42px;background:linear-gradient(180deg,#311018,#080304)!important;border-color:rgba(203,213,225,.35)!important;box-shadow:inset 4px 0 0 rgba(255,255,255,.05)}.boss .leg.back{left:107px}.boss .leg.front{left:165px}
+    .boss .core{left:134px;top:111px;width:24px!important;height:24px!important;background:radial-gradient(circle,#fff1f2 0 12%,#fb7185 18% 44%,#7f1d1d 64%,transparent 76%)!important;box-shadow:0 0 22px rgba(248,113,113,.78),0 0 36px rgba(127,29,29,.38)!important;opacity:.86!important}
+
+    /* Agent ops card repair and scenario chart tooltip polish. */
+    .ops-results-panel{min-width:0;overflow:hidden}
+    .ops-results-panel .anchor-note{margin:0 0 12px;padding:10px 12px;border-left:3px solid var(--accent);background:#07111f;color:#cbd5e1;line-height:1.25}
+    .goal-strip{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:10px 0 12px}
+    .goal-card{border:1px solid var(--border);border-radius:7px;background:#0b1220;padding:10px 12px;min-height:58px;min-width:0}
+    .goal-card strong{display:block;color:#e5e7eb;font-size:12px;margin-bottom:5px}
+    .goal-card span{display:block;color:#cbd5e1;font-size:12px;line-height:1.25;overflow-wrap:anywhere}
+    .agent-flow{display:grid;gap:10px;margin:10px 0 12px}
+    .flow-step{display:grid;grid-template-columns:34px minmax(0,1fr) auto;gap:10px;align-items:start;border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:7px;background:#0b1220;padding:10px;min-width:0}
+    .flow-step.policy{border-left-color:#38bdf8}.flow-step.audit{border-left-color:var(--red)}.flow-step.mixed{border-left-color:var(--purple)}
+    .flow-num{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:999px;border:1px solid #38bdf8;color:#38bdf8;font-weight:800;line-height:1;background:#061423}
+    .flow-step.audit .flow-num{border-color:var(--red);color:#fecaca}.flow-step.mixed .flow-num{border-color:var(--purple);color:#ddd6fe}
+    .agent-tag{display:flex;align-items:center;gap:5px;color:#94a3b8;font-size:10px;line-height:1.2;margin-bottom:4px}
+    .agent-tag.audit .agent-dot{background:var(--red)}.agent-tag.mixed .agent-dot{background:var(--purple)}
+    .agent-dot{width:7px;height:7px;border-radius:999px;background:#38bdf8;display:inline-block;flex:0 0 auto}
+    .flow-title{font-weight:800;color:#e5e7eb;line-height:1.2;margin-bottom:4px}
+    .flow-body{color:#dbeafe;font-size:12px;line-height:1.35;white-space:normal;overflow-wrap:anywhere}
+    .flow-status{justify-self:end;white-space:nowrap}
+    .experiment-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:12px 0}
+    .scenario-card{border:1px solid var(--border);border-radius:7px;background:#0b1220;padding:10px;min-height:88px;min-width:0}
+    .scenario-card strong{display:block;color:#e5e7eb;margin-bottom:5px;line-height:1.2}.scenario-card p{margin:8px 0 0;font-size:12px;line-height:1.35}
+    .agent-path-card .trace-step{margin:0 0 8px;background:#0d1b2e;border:1px solid var(--border);border-left:3px solid var(--accent)}
+    .sim-strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}.sim-step{border:1px solid var(--border);border-radius:8px;background:#0b1220;padding:10px}.sim-step strong{display:flex;justify-content:space-between;gap:8px;color:#e5e7eb}.action-name{color:#cbd5e1;font-size:12px;margin:6px 0}.mini-bars{display:grid;gap:6px}.mini-bars label{display:flex;justify-content:space-between;color:#94a3b8;font-size:11px}.mini-track{height:7px;border:1px solid var(--border);border-radius:999px;background:#020617;overflow:hidden}.mini-fill{height:100%;background:#38bdf8}.mini-fill.warn{background:#f59e0b}.mini-fill.bad{background:#ef4444}
+    .chart{position:relative}.chart-tooltip{position:fixed;display:none;pointer-events:none;z-index:80;min-width:155px;border:1px solid var(--border);border-radius:8px;background:#020617;color:#dbeafe;padding:8px 9px;font-size:12px;line-height:1.35;box-shadow:0 12px 30px rgba(0,0,0,.45)}.chart-tooltip strong{display:block;color:#e0f2fe;margin-bottom:3px}.chart-hit{cursor:crosshair;pointer-events:all}.chart-hit:hover{stroke:#fff;stroke-width:2}
+    @media(max-width:1180px){.goal-strip,.experiment-grid{grid-template-columns:1fr 1fr}.flow-step{grid-template-columns:30px minmax(0,1fr)}}
+    @media(max-width:720px){.goal-strip,.experiment-grid{grid-template-columns:1fr}.flow-status{justify-self:start;grid-column:2}.flow-step{grid-template-columns:28px minmax(0,1fr)}}
+
+
+    /* Human face and leg cleanup. */
+    .hero .head::after{left:7px;right:7px;top:13px;height:5px;border-radius:0;background:radial-gradient(circle at 23% 50%,#0f172a 0 2px,transparent 2.4px),radial-gradient(circle at 77% 50%,#0f172a 0 2px,transparent 2.4px)}
+    .hero.tired .head::after{height:2px;top:15px;background:linear-gradient(90deg,transparent 0 12%,#0f172a 13% 36%,transparent 37% 63%,#0f172a 64% 87%,transparent 88%);border-radius:999px}
+    .hero .legs{background:linear-gradient(90deg,#4a240d 0 25%,transparent 26% 43%,transparent 44% 56%,transparent 57% 74%,#4a240d 75% 100%);box-shadow:inset 0 9px 0 rgba(251,191,36,.18)}
+    .hero .legs::before{content:"";position:absolute;left:23px;top:2px;bottom:7px;width:4px;border-radius:999px;background:rgba(2,6,23,.82)}
+
+
+    /* Sword silhouette cleanup. */
+    .hero .weapon{left:103px;top:43px;width:92px;height:12px;background:transparent;box-shadow:none;border-radius:0;overflow:visible}
+    .hero .weapon::before{content:"";position:absolute;left:0;top:4px;width:88px;height:6px;border:0;background:linear-gradient(90deg,#f8fafc 0%,#dbeafe 45%,#94a3b8 78%,transparent 79%);clip-path:polygon(0 18%,78% 18%,100% 50%,78% 82%,0 82%);box-shadow:0 0 10px rgba(186,230,253,.45)}
+    .hero .weapon::after{content:"";position:absolute;left:-17px;top:0;width:26px;height:14px;background:linear-gradient(90deg,#7c2d12 0 24%,#facc15 25% 38%,#451a03 39% 61%,#facc15 62% 76%,#7c2d12 77% 100%);border:1px solid rgba(254,243,199,.75);border-radius:999px;box-shadow:0 2px 4px rgba(0,0,0,.35)}
+    .hero .weapon-arm::after{right:-6px;top:0;width:12px;height:12px;background:radial-gradient(circle,#fde68a 0 38%,#92400e 40% 100%)}
+
+
+    /* Side-by-side estimate vs match graph layout. */
+    .comparison-section{padding:14px}.comparison-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:8px}.comparison-head h2{margin:0}.comparison-head p{margin:3px 0 0;max-width:760px}.comparison-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.comparison-grid .chart{margin-top:0;min-width:0}.comparison-grid .chart svg{height:210px}.chart-note{color:var(--muted);font-size:12px;margin-top:7px;line-height:1.35}
+    @media(max-width:900px){.comparison-grid{grid-template-columns:1fr}.comparison-head{display:block}}
+
+
+    /* Cohesive operations layout cleanup. */
+    .global-status{grid-template-columns:repeat(auto-fit,minmax(145px,1fr))}
+    .ops-native-layout{grid-template-columns:1fr 1fr;grid-template-areas:"results results" "tools console";gap:14px;align-items:start}
+    .ops-results-panel{grid-area:results}.ops-tools-panel{grid-area:tools}.ops-console-panel{grid-area:console}
+    .match-context-card{grid-column:1/-1}.match-context-card .sim-strip{margin-top:8px}.match-context-card .muted{margin-bottom:0}
+    .ops-raw-panel pre{max-height:170px}.ops-raw-panel{opacity:.92}.ops-raw-panel summary{cursor:pointer;font-weight:800;color:#e0f2fe}.ops-raw-panel summary span{font-weight:400;color:var(--muted);font-size:12px;margin-left:6px}
+    @media(max-width:1180px){.ops-native-layout{grid-template-columns:1fr;grid-template-areas:"results" "tools" "console"}}
+
+    /* Final operations layout fix: one continuous page, stable left buttons, fixed results pane. */
+    .ops-console-wrap,.ops-console-frame{display:none!important}
+    .ops-merged{margin:14px;border-radius:12px;border:1px solid var(--border);background:linear-gradient(180deg,var(--panel),#0a1220);overflow:visible;box-shadow:0 16px 36px rgba(0,0,0,.22)}
+    .ops-merged-head{padding:14px;border-bottom:1px solid var(--border);background:#0b1220}
+    .ops-native-layout{display:grid!important;grid-template-columns:300px minmax(0,1fr)!important;grid-template-areas:"tools results" "tools console"!important;gap:14px!important;padding:14px!important;align-items:start!important}
+    .ops-tools-panel{grid-area:tools!important;position:sticky;top:12px;align-self:start;min-height:520px}.ops-results-panel{grid-area:results!important;min-width:0}.ops-console-panel{grid-area:console!important;min-width:0}
+    .ops-tool-grid button{width:100%;min-height:38px;text-align:left}.ops-result-title{position:sticky;top:0;background:#0b1220;z-index:2}
+    #opsResults{min-height:420px;max-height:520px;overflow:auto;padding-right:4px}.ops-console-panel .first-chat-log{min-height:132px;max-height:220px}.ops-raw-panel{margin:0 14px 14px}.ops-panel pre{max-height:260px;overflow:auto}.global-status-card span{word-break:break-word}.mode-toggle button{font-weight:700}.secondary{opacity:.82}
+    @media(max-width:1100px){.ops-native-layout{grid-template-columns:1fr!important;grid-template-areas:"tools" "results" "console"!important}.ops-tools-panel{position:static;min-height:0}}
+
+  
+    /* chat-polish-pass */
+    .first-chat{grid-template-columns:minmax(0,1fr) 132px!important;gap:10px!important}.first-chat-log{min-height:220px!important;max-height:340px!important;background:#08111f!important;padding:10px!important}.first-chat textarea{height:42px!important;min-height:42px!important;max-height:58px!important;background:#0b1220!important;border-color:#263244!important;color:#e5e7eb!important}.first-msg{white-space:pre-wrap;line-height:1.45;border:1px solid rgba(148,163,184,.14)}.first-msg.agent{background:#0c1a2b}.first-msg.user{background:#12324a}.first-quick button{min-height:38px!important}.mode-toggle button:disabled{opacity:.42;cursor:not-allowed;border-color:#334155!important;background:#111827!important}.benchmark-note{border:1px solid var(--border);border-radius:8px;background:#08111f;padding:9px;margin-top:9px;color:#cbd5e1;font-size:14px;line-height:1.5}.benchmark-note strong{color:#e0f2fe}.chart-note{color:#94a3b8;font-size:12px;line-height:1.35;margin-top:6px}.match-label{fill:#cbd5e1;font-size:10px;text-anchor:start}.benchmark-note+table td,.benchmark-note+table th{font-size:13px!important;line-height:1.35}.baseline-row{background:#0b1220}.candidate-row{background:#071a12}.risk-row{background:#25131a}
+    .auto-rollout-panel{border:1px solid var(--border);border-radius:10px;background:#08111f;padding:12px;margin-top:12px}.auto-rollout-panel h2{margin-top:0}.auto-summary{border:1px solid rgba(56,189,248,.25);background:#071827;border-radius:8px;padding:10px;color:#dbeafe;line-height:1.45}.auto-step-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-top:10px}.auto-step{border:1px solid var(--border);border-radius:8px;background:#0b1220;padding:10px}.auto-step strong{display:flex;justify-content:space-between;gap:8px;color:#e0f2fe}.auto-step p{margin:7px 0;color:#cbd5e1;line-height:1.35}.rollout-pager{display:flex;align-items:center;justify-content:center;gap:10px;margin:12px 0 4px}.rollout-pager button{width:36px;height:32px;border-radius:8px;padding:0;font-size:18px}.rollout-pager span{color:#cbd5e1;font-size:12px}.auto-match-error{display:block;color:#fca5a5;font-size:11px;line-height:1.25;margin-top:4px;max-width:190px}.auto-summary.running{position:relative;padding-left:42px;animation:rlFlash 1.15s ease infinite}.auto-summary.running:before{content:"";position:absolute;left:14px;top:16px;width:14px;height:14px;border:2px solid rgba(56,189,248,.25);border-top-color:#38bdf8;border-radius:50%;animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}.metric.flash,.score-row.flash,.auto-step.flash{animation:rlFlash 1.15s ease}.fill.flash{animation:barGlow 1.15s ease}@keyframes rlFlash{0%,100%{box-shadow:0 0 0 rgba(56,189,248,0);border-color:var(--border)}50%{box-shadow:0 0 24px rgba(56,189,248,.45);border-color:var(--accent)}}@keyframes barGlow{0%,100%{filter:none}50%{filter:drop-shadow(0 0 8px rgba(56,189,248,.9))}}.mode-help{margin:8px 0 0;color:#cbd5e1;font-size:12px;line-height:1.4}.mode-help b{color:#e0f2fe}</style>
+</head>
+<body>
+<div class="global-status" id="globalStatusbar">
+  <div class="global-status-card"><strong>Runtime mode</strong><span>checking</span></div>
+  <div class="global-status-card"><strong>Data source</strong><span>checking</span></div>
+  <div class="global-status-card"><strong>BigQuery</strong><span>checking</span></div>
+  <div class="global-status-card"><strong>Explanation mode</strong><span>checking</span></div>
+  <div class="global-status-card"><strong>Repo data</strong><span>checking</span></div>
+  <div class="global-status-card"><strong>Cloud config</strong><span>checking</span></div>
+  <div class="global-status-card"><strong>Env file</strong><span>checking</span></div>
+  <div class="global-status-card"><strong>Project</strong><span>checking</span></div>
+  <div class="global-status-card"><strong>BigQuery dataset</strong><span>checking</span></div>
+  <div class="global-status-card"><strong>Policy loaded</strong><span>checking</span></div>
+  <div class="global-status-card"><strong>Offline episodes</strong><span>checking</span></div>
+</div>
+<header>
+  <h1>Adaptive LiveOps Decision Engine</h1>
+  <div class="subtitle">Policy Replay Simulator with one RL Decision Agent, deterministic safety guardrails, cinematic replay, and benchmark evidence.</div>
+  <div class="arch">The RL Decision Agent scores interventions, applies an internal red safety/risk gate, serves one action, and logs outcomes for explanation.</div>
+  <div class="linkbar"><a href="/docs">API docs</a><a href="/arena/presets">Preset JSON</a><a href="/arena/policy_rules">Policy rules</a><a href="/arena/dashboard">Standalone simulator route</a></div>
+    <div class="first-console">
+    <div class="first-card">
+      <h2>Runtime mode</h2>
+      <div class="mode-toggle">
+        <button id="firstModeLocal" class="active" onclick="setFirstRuntimeMode('local')">Local path</button>
+        <button id="firstModeAuto" onclick="setFirstRuntimeMode('cloud')">Cloud path</button>
+      </div>
+      <div class="mode-note" id="firstRuntimeNote">Local path uses bundled repo files. Cloud path uses BigQuery/Gemini only when configured and confirmed by /health.</div>
+      <div class="first-status"><span class="badge" id="firstRuntimeBadge">Runtime: checking</span><span class="badge" id="firstExplanationBadge">Chat: checking</span></div>
+      <div class="mode-toggle" aria-label="Chat provider"><button id="chatProviderOffline" class="active" onclick="setChatProvider('offline')">Offline RAG</button><button id="chatProviderOllama" onclick="setChatProvider('ollama')">Ollama</button><button id="chatProviderGemini" onclick="setChatProvider('gemini')">Gemini</button></div>
+    </div>
+    <div class="first-card">
+      <h2>Ask the RL agent explanation console</h2>
+      <div class="first-chat">
+        <div>
+          <div class="first-chat-log" id="firstChatLog"><div class="first-msg">Ask about the current RL recommendation, the red safety gate, OPE, rollout evidence, or what to do next.</div></div>
+          <textarea id="firstAgentInput" placeholder="Ask about the current run, player scenario, red-gate blocks, OPE confidence, or next action"></textarea>
+          <button class="primary" style="width:100%;margin-top:7px" onclick="sendFirstAgentMessage()">Ask question</button>
+        </div>
+        <div class="first-quick">
+          <button onclick="sendFirstQuick('Explain this agent run in plain English')">Explain run</button>
+          <button onclick="sendFirstQuick('Why were any actions blocked by the safety gate?')">Why blocked?</button>
+          <button onclick="sendFirstQuick('What should we do next for this player scenario?')">What next?</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="view-toggle" role="tablist" aria-label="Main view">
+    <button id="arenaTab" class="active" onclick="showMainView('arena')">Policy Replay Simulator</button>
+    <button id="opsTab" type="button" onclick="document.getElementById('agentOpsSection').scrollIntoView({behavior:'smooth'});">Agent path + health checks</button>
+  </div></header>
+<div id="arenaView" class="view-panel"><div class="layout">
+  <section>
+    <h2>Scenario controls</h2>
+    <div class="workflow-guide">
+      <strong>How to test a scenario</strong>
+      <div class="workflow-steps">
+        <div class="workflow-step"><span class="workflow-num">1</span><span>Load a preset below, or move sliders to create a custom player state. Slider changes recalculate the RL recommendation automatically.</span></div>
+        <div class="workflow-step"><span class="workflow-num">2</span><span>The RL recommendation refreshes automatically after edits; Preview decision is optional.</span></div>
+        <div class="workflow-step"><span class="workflow-num">3</span><span>The primary play button automatically applies the served RL action after the red safety gate.</span></div>
+        <div class="workflow-step"><span class="workflow-num">4</span><span>Click <b>Play Next Match</b> to apply the served action, run the battle replay, and refresh the metrics.</span></div>
+      </div>
+      <div class="workflow-status" id="workflowStatus">Ready: choose a preset or move sliders. Recommendation updates automatically.</div>
+    </div>
+    <div id="controls"></div>
+    <div class="toggles">
+      <label class="toggle"><input type="checkbox" id="new_player"> New player</label>
+      <label class="toggle"><input type="checkbox" id="advanced_player"> Advanced player</label>
+    </div>
+    <h3>Preset scenarios</h3>
+    <div class="scenario-grid" id="scenarioButtons"></div>
+  </section>
+
+  <main class="stack">
+    <section>
+      <h2>Live metrics</h2>
+      <div class="grid3">
+        <div class="metric"><strong>Win probability</strong><span id="m_win">--</span></div>
+        <div class="metric"><strong>Frustration</strong><span id="m_frustration">--</span></div>
+        <div class="metric"><strong>Churn risk</strong><span id="m_churn">--</span></div>
+        <div class="metric"><strong>Power gap</strong><span id="m_gap">--</span></div>
+        <div class="metric"><strong>Cold start</strong><span id="m_cold">--</span></div>
+        <div class="metric"><strong>History confidence</strong><span id="m_conf">--</span></div>
+      </div>
+    </section>
+
+    <section class="battle-card" id="battleCard">
+      <div class="replay-control-strip" aria-label="Replay controls">
+        <div class="replay-speed"><label><span>Replay speed</span><strong id="v_replay_speed">1.00x</strong></label><input id="replay_speed" type="range" min="0.5" max="2.25" step="0.05" value="1" oninput="document.getElementById('v_replay_speed').textContent=Number(this.value).toFixed(2)+'x'"></div>
+        <button class="replay-play" onclick="playMatch()"><span class="play-triangle"></span><span>Play Next Match</span></button>
+        <button class="secondary" onclick="recommendNow()"><span>Refresh recommendation</span></button>
+        <div class="replay-speed"><label><span>Auto matches</span><strong id="v_auto_matches">10</strong></label><input id="auto_matches" type="number" min="1" max="200" step="1" value="10" oninput="updateAutoMatchLimitMessage()"><span id="autoMatchError" class="auto-match-error"></span></div><button id="autoRolloutBtn" onclick="return false"><span>Run Auto RL Rollout</span></button>
+        <button onclick="runBenchmark()"><span>Run benchmark</span></button>
+        <button class="danger" onclick="resetCurrent()"><span>Reset scenario</span></button>
+      </div>
+      <p class="mode-help"><b>Manual mode</b> lets you inspect one recommendation or play one match at a time. <b>Auto RL Plan</b> runs several match-policy cycles automatically and shows how the fixed policy adapts after each simulated outcome.</p>
+      <div class="battle-toolbar">
+        <h2 style="margin:0">Policy Replay Simulator</h2>
+        <span class="muted">state snapshot -> replay events -> updated telemetry</span>
+      </div>
+      <div class="battle-stage" id="battleStage">
+        <div class="mountains"></div><div class="runes"></div><div class="mist"></div>
+        <div class="combat-hud">
+          <div class="combatant-hud"><div class="combatant-title"><strong>Player</strong><span id="heroPowerHud">-- power</span></div><div class="hp-track"><div class="hp-fill hero-hp" id="playerHp" style="width:100%"></div></div></div>
+          <div class="combatant-hud"><div class="combatant-title"><strong>Boss</strong><span id="bossPowerHud">-- power</span></div><div class="hp-track"><div class="hp-fill boss-hp" id="enemyHp" style="width:100%"></div></div></div>
+        </div>
+        <div class="stage-message" id="stageMessage">Change a slider or select a preset; the RL recommendation refreshes automatically. Click Play Next Match to advance.</div>
+        <div class="hero" id="hero"><div class="hero-aura"></div><div class="cape"></div><div class="plume"></div><div class="helm"></div><div class="head"></div><div class="body"></div><div class="shield-arm"></div><div class="weapon-arm"></div><div class="weapon"></div><div class="shield"></div><div class="legs"></div></div>
+        <div class="boss" id="boss"><div class="wing left"></div><div class="wing right"></div><div class="tail"></div><div class="neck"></div><div class="leg back"></div><div class="leg front"></div><div class="body"></div><div class="core"></div><div class="head"></div><div class="jaw"></div><div class="horn left"></div><div class="horn right"></div><div class="eye left"></div><div class="eye right"></div></div>
+        <div class="effects-layer" id="effectsLayer"></div>
+        <div class="telemetry-strip">
+          <div class="telemetry-pill"><strong>Progress</strong><span id="progressText">0%</span><div class="bar"><div class="fill" id="progressFill" style="width:0%"></div></div></div>
+          <div class="telemetry-pill"><strong>Player HP</strong><span id="playerHpText">100</span></div>
+          <div class="telemetry-pill"><strong>Boss HP</strong><span id="enemyHpText">100</span></div>
+          <div class="telemetry-pill"><strong>Last action</strong><span id="lastActionMini">none</span></div>
+        </div>
+      </div>
+      <div class="timeline" id="timeline"></div>
+    </section>
+
+    <section class="auto-rollout-panel" id="autoRlPlan">
+      <h2>Autonomous RL Rollout</h2>
+      <p class="muted">Run a 10-match policy loop to show: state -> RL recommendation -> applied action -> simulated match -> updated telemetry -> next recommendation.</p>
+      <div id="autoRlPlanBody"><div class="auto-summary">No automatic rollout has run yet.</div></div>
+    </section>
+
+    <section class="comparison-section">
+      <div class="comparison-head"><div><h2>Estimate vs actual match response</h2><p class="muted">Left: the policy estimate updates when presets or controls change. Right: actual telemetry appends only after Play Next Match completes.</p></div><span class="badge">side-by-side</span></div>
+      <div class="comparison-grid">
+        <div class="chart"><div class="chart-title">Control Preview: Estimated Outcomes <span class="muted">control-change history</span></div><svg id="scenarioChart"></svg><div class="legend"><span><i class="dot"></i> win</span><span><i class="dot warn"></i> frustration</span><span><i class="dot bad"></i> churn</span></div><div class="chart-note">Each dot is a recalculation after a preset load or slider change. These are estimated outcomes before a simulated match is run.<br>X-axis: control update sequence, not match time</div></div>
+        <div class="chart"><div class="chart-title">Actual match telemetry <span class="muted">two points per match: before / after</span></div><svg id="timelineChart"></svg><div class="chart-note">Actual telemetry updates only after completed simulated matches. Separators indicate different matches. Each match adds a before point and an after point.</div><div class="legend"><span><i class="dot"></i> win probability</span><span><i class="dot warn"></i> frustration</span><span><i class="dot bad"></i> churn</span></div><div class="chart-note">Adds before/after points when Play Next Match runs and updates the player state.</div></div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Benchmark</h2>
+      <div class="chart"><div class="chart-title">Policy comparison <span class="muted">safety-gated RL vs baselines</span></div><svg id="benchmarkChart"></svg></div>
+      <div id="benchmarkTable"></div>
+    </section>
+
+    <section class="trajectory-section">
+      <h2>Historical and predicted trajectory</h2>
+      <p class="muted">Seven-day view for the selected scenario. Hover cards for why churn, frustration, or win probability changed.</p>
+      <div class="trajectory-grid" id="trajectoryCards"></div>
+      <div class="trajectory-tooltip" id="trajectoryTooltip"></div>
+    </section>
+  </main>
+
+  <aside class="stack">
+    <section>
+      <h2>RL recommendation</h2>
+      <div class="metric"><strong>Served action</strong><span id="servedAction">--</span></div>
+      <p class="muted" id="architectureNote">One RL decision agent; guardrails are deterministic.</p>
+      <h3>Action scores</h3><div id="scoreRows"></div>
+      <h3>Expected effect</h3><div id="expectedEffect"></div>
+    </section>
+    <section>
+      <h2>Safety gate</h2>
+      <div id="blockedActions" class="stack"></div>
+    </section>
+    <section>
+      <h2>Single-agent path</h2>
+      <p class="muted">One RL Decision Agent: telemetry -> derived features -> Q-policy scoring -> <span class="badge bad">red safety gate</span> -> served action.</p>
+      <div id="agentTrace" class="agent-path-card">Recommendation trace will appear after the first run.</div>
+    </section>
+    <section>
+      <h2>Frustration derivation</h2>
+      <p class="muted">Frustration is derived from telemetry, not supplied as a raw label.</p>
+      <div id="frustrationDerivation" class="frustration-list"></div>
+    </section>
+    <section>
+      <h2>Raw response</h2>
+      <pre id="rawResponse">Ready.</pre>
+    </section>
+  </aside>
+</div>
+</div>
+<section class="ops-merged" id="agentOpsSection">
+  <div class="ops-merged-head">
+    <h2>Agent operations, health checks, and 7-day progress</h2>
+    <p class="muted">Operational evidence for the same RL Decision Agent: health checks, policy metrics, audit/explanation tools, OPE, recent logs, dataset tools, and day-by-day progress cards.</p>
+    <div class="anchor-note">The red safety/risk gate is an internal serving component. The explanation console describes what happened; it does not choose actions.</div>
+  </div>
+  <div class="ops-native-layout">
+    <section class="ops-panel ops-tools-panel">
+      <h2>Operational tools</h2>
+      <p class="muted">Focused checks update the results panel without opening a second page.</p>
+      <div class="ops-tool-grid">
+        <button onclick="opsHealthCheck()">Health Check</button>
+        <button onclick="opsPolicyMetrics()">Policy Metrics</button>
+        <button onclick="opsRlPolicyTrace()">RL Policy Trace</button>
+        <button onclick="opsRunAudit()">Safety / Policy Audit</button>
+        <button onclick="opsOpeMetrics()">OPE Metrics</button>
+        <button onclick="opsRecentLogs()">Recent Logs</button>
+        <button onclick="opsDatasetProfile()">Dataset Profile</button>
+        <button onclick="opsSyntheticSample()">Synthetic Episode Sample</button>
+        <button onclick="opsClearResults()">Clear Results</button>
+      </div>
+    </section>
+    <section class="ops-panel ops-results-panel">
+      <div class="ops-result-title"><h2 id="opsResultHeading">Live RL Decision Agent Path</h2><span class="badge" id="opsLastAction">Synced with simulator</span></div>
+      <div id="opsResults"><div class="anchor-note">Choose a preset or move sliders above. The served action, safety gate, expected effect, and match context will appear here automatically.</div></div>
+    </section>
+    <section class="ops-panel ops-console-panel">
+      <h2>Explanation console</h2>
+      <p class="muted">Ask about the current recommendation, red safety/risk gate, OPE confidence, rollout evidence, or next action.</p>
+      <div class="first-chat-log" id="opsChatLog"><div class="first-msg">RL explanation console ready.</div></div>
+      <textarea id="opsAgentInput" placeholder="Ask why the RL agent chose this action or why something was blocked"></textarea>
+      <button class="primary" style="width:100%;margin-top:8px" onclick="sendOpsAgentMessage()">Ask question</button>
+    </section>
+  </div>
+  <details class="ops-raw-panel">
+    <summary>Operations raw JSON <span>debug payload, collapsed by default</span></summary>
+    <pre id="opsRawJson">{}</pre>
+  </details>
+</section>
+<section class="dataset-summary" id="datasetSummarySection">
+  <h2>Dataset summary</h2>
+  <div class="grid3" id="datasetSummaryCards">
+    <div class="metric"><strong>Rows</strong><span>loading</span></div>
+    <div class="metric"><strong>Players</strong><span>loading</span></div>
+    <div class="metric"><strong>Frustration</strong><span>derived</span></div>
+  </div>
+  <div class="dataset-fields" id="datasetFields"></div>
+  <p class="muted">Frustration is derived from behavioral telemetry such as retries, failed challenges, near misses, idle time, fatigue, and power gap.</p>
+</section>
+<script>let firstHealth = null;
+function firstEsc(s){return String(s ?? '').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
+async function firstRequest(path, options={}){const r=await fetch(path,{headers:{'Content-Type':'application/json'},...options}); if(!r.ok) throw new Error(await r.text()); return r.json();}
+function statusItems(data){
+  const dataSource = data.data_path || (data.use_bigquery ? 'BigQuery' : 'local CSV/JSON');
+  const offline = data.synthetic_episode_source || 'repo_csv';
+  const runtime = data.runtime_mode === 'cloud' ? 'cloud path' : 'local path';
+  return [
+    ['Runtime mode', runtime],
+    ['Data source', dataSource],
+    ['BigQuery', data.use_bigquery ? 'enabled' : (data.bigquery_configured ? 'configured, inactive' : 'not configured')],
+    ['Explanation', data.use_gemini ? 'Gemini' : 'deterministic fallback'],
+    ['Logs', data.logging_sink || (data.use_bigquery ? 'BigQuery' : 'local JSONL')],
+    ['Policy artifact', data.repo_artifacts_available === false ? 'missing' : 'loaded'],
+    ['RL serving', data.policy_serving || 'local artifact'],
+    ['Vertex RL', data.vertex_rl_serving ? 'enabled' : 'not used'],
+    ['Project', data.gcp_project || 'not configured'],
+    ['BigQuery dataset', data.bq_dataset || 'not configured'],
+    ['Cloud ready', data.cloud_available ? 'configured' : 'not configured']
+  ];
+}
+function renderGlobalStatus(data){
+  const el=document.getElementById('globalStatusbar'); if(!el||!data)return;
+  el.innerHTML=statusItems(data).map(([k,v])=>`<div class="global-status-card"><strong>${firstEsc(k)}</strong><span>${firstEsc(v)}</span></div>`).join('');
+}
+function trajectoryReason(day, f, rec){
+  if(day<0) return 'Historical telemetry leading into the current player state.';
+  if(day===0) return 'Today: current derived features and served action.';
+  const action=actionTitle(rec?.recommended_action||'monitor');
+  return 'Predicted continuation if the policy keeps serving context-aware interventions such as '+action+'.';
+}
+function buildTrajectoryPoints(){
+  const rec=lastRecommendation||{}; const f=rec.derived_features||{}; const s=state||{};
+  const baseWin=Number(f.win_probability ?? .5), baseFr=Number(f.frustration_score ?? .4), baseCh=Number(f.churn_risk ?? .3);
+  const baseEng=Math.max(0,Math.min(1,1-baseFr*.55-baseCh*.25));
+  const days=[-3,-2,-1,0,1,3,7]; const today=new Date();
+  return days.map(d=>{
+    const phase=d<0?'Historical':(d===0?'Today':'Predicted');
+    const drift=d<0?d*.035:Math.min(.12,d*.018);
+    const win=Math.max(0,Math.min(1,baseWin+drift));
+    const frustration=Math.max(0,Math.min(1,baseFr-(d>0?d*.012:d*.018)));
+    const churn=Math.max(0,Math.min(1,baseCh-(d>0?d*.014:d*.015)));
+    const engagement=Math.max(0,Math.min(1,baseEng+(d>0?d*.015:d*.01)));
+    const date=new Date(today); date.setDate(today.getDate()+d);
+    return {day:d,phase,date:date.toISOString().slice(0,10),win,frustration,churn,engagement,action:actionTitle(rec.recommended_action||'pending'),reason:trajectoryReason(d,f,rec),retained:churn<.62};
+  });
+}
+function renderTrajectory(){
+  const box=document.getElementById('trajectoryCards'); if(!box)return;
+  const points=buildTrajectoryPoints(); const tip=document.getElementById('trajectoryTooltip');
+  box.innerHTML=points.map(p=>`<div class="trajectory-card ${p.day===0?'today':(p.day>0?'predicted':'')}" data-tip="${esc(JSON.stringify(p))}"><strong><span>${p.phase} Day ${p.day>0?'+'+p.day:p.day}</span><span>${p.date}</span></strong><div class="trajectory-bars"><label><span>Churn</span><b>${pct(p.churn)}</b><div class="bar"><div class="fill bad" style="width:${p.churn*100}%"></div></div></label><label><span>Frustr.</span><b>${pct(p.frustration)}</b><div class="bar"><div class="fill warn" style="width:${p.frustration*100}%"></div></div></label><label><span>Win</span><b>${pct(p.win)}</b><div class="bar"><div class="fill" style="width:${p.win*100}%"></div></div></label><label><span>Engage</span><b>${pct(p.engagement)}</b><div class="bar"><div class="fill good" style="width:${p.engagement*100}%"></div></div></label></div><div class="why">${esc(p.action)} - ${esc(p.reason)}</div><span class="badge ${p.retained?'good':'warn'}">${p.retained?'probable retention':'churn risk watch'}</span></div>`).join('');
+  if(tip){
+    box.querySelectorAll('.trajectory-card').forEach(card=>{
+      card.addEventListener('mousemove',e=>{const p=JSON.parse(card.dataset.tip); tip.style.display='block'; tip.style.left=(e.pageX+12)+'px'; tip.style.top=(e.pageY+12)+'px'; tip.innerHTML=`<strong>${p.phase} Day ${p.day>0?'+'+p.day:p.day} - ${p.date}</strong><br>Churn: ${pct(p.churn)}<br>Frustration: ${pct(p.frustration)}<br>Engagement: ${pct(p.engagement)}<br>Win probability: ${pct(p.win)}<br>Action: ${esc(p.action)}<br>Reason: ${esc(p.reason)}`;});
+      card.addEventListener('mouseleave',()=>{tip.style.display='none';});
+    });
+  }
+}
+async function loadDatasetSummary(){
+  const cards=document.getElementById('datasetSummaryCards'); if(!cards)return;
+  try{
+    const data=await api('/arena/dataset_profile'); const p=data.profile||data||{};
+    cards.innerHTML=`<div class="metric"><strong>Rows</strong><span>${esc(p.rows||'n/a')}</span></div><div class="metric"><strong>Players</strong><span>${esc(p.players||'n/a')}</span></div><div class="metric"><strong>Scenarios</strong><span>${esc(Object.keys(p.segments||{}).length||'n/a')}</span></div><div class="metric"><strong>Retention</strong><span>${p.retention_rate_final!==undefined?pct(p.retention_rate_final):'n/a'}</span></div><div class="metric"><strong>Episodes</strong><span>${esc(p.episodes||p.rows||'synthetic')}</span></div><div class="metric"><strong>Frustration</strong><span>derived</span></div>`;
+    const fields=['time_spent','enemy_time','retries','failed_challenges','near_misses','idle_time','fatigue','power_gap','boosters_used','revives_used','currency_spent','help_opens'];
+    const fieldBox=document.getElementById('datasetFields'); if(fieldBox) fieldBox.innerHTML=fields.map(x=>`<span>${x}</span>`).join('');
+  }catch(e){cards.innerHTML=`<div class="metric"><strong>Dataset</strong><span>unavailable</span></div>`;}
+}
+function renderFirstRuntime(data){
+  firstHealth=data; renderOpsStatus(data); renderGlobalStatus(data);
+  const mode=data.runtime_mode||'local';
+  document.getElementById('firstModeLocal')?.classList.toggle('active',mode==='local');
+  document.getElementById('firstModeAuto')?.classList.toggle('active',mode==='cloud');
+  const runtime = mode === 'cloud' ? 'cloud path' : 'local path';
+  document.getElementById('firstRuntimeBadge').textContent = 'Runtime: ' + runtime;
+  document.getElementById('firstExplanationBadge').textContent = 'Chat: ' + (data.chat_provider || selectedChatProvider || (data.use_gemini ? 'gemini' : 'offline'));
+  const note = data.runtime_warning || data.cloud_message || (mode==='cloud'
+    ? 'Cloud path is active for configured BigQuery/Gemini features. RL policy is still loaded from the local artifact unless a Vertex endpoint is explicitly added.'
+    : 'Local path: bundled CSV/JSON data, local policy artifact, local JSONL logs, deterministic explanation fallback.');
+  document.getElementById('firstRuntimeNote').textContent = note;
+}
+async function setFirstRuntimeMode(mode){try{const data=await firstRequest('/runtime_mode',{method:'POST',body:JSON.stringify({mode})}); renderFirstRuntime(data); await refreshChatProviderStatus(); setOpsRaw(data); if(data.runtime_warning)addFirstMsg(data.runtime_warning,'agent'); await runBenchmark(false);}catch(e){addFirstMsg(e.message||String(e),'agent');}}
+function cleanAgentText(text){return String(text??'').replace(/\*\*/g,'').replace(/^\s*\*\s+/gm,'- ').replace(/`([^`]+)`/g,'$1');} function addFirstMsg(text, cls='agent'){const log=document.getElementById('firstChatLog'); if(!log)return; const div=document.createElement('div'); div.className='first-msg '+cls; div.textContent=cls==='agent'?cleanAgentText(text):text; log.appendChild(div); log.scrollTop=log.scrollHeight;}
+function sendFirstQuick(text){document.getElementById('firstAgentInput').value=text; sendFirstAgentMessage();}
+async function sendFirstAgentMessage(){
+  const input=document.getElementById('firstAgentInput'); const text=input.value.trim(); if(!text)return;
+  addFirstMsg(text,'user');
+  input.value='';
+  try{
+    const data=await firstRequest('/agent_message',{method:'POST',body:JSON.stringify({message:text,provider:selectedChatProvider,session_id:chatSessionId,context:currentRunContext()})});
+    if(data.provider_error)addFirstMsg(data.provider_error.replace('ollama chat failed; offline fallback used:','Ollama is unavailable, so I used Offline RAG instead. Details:'),'agent'); else if(data.gemini_error)addFirstMsg(data.gemini_error,'agent');
+    addFirstMsg(data.response,'agent');
+    document.getElementById('firstExplanationBadge').textContent='Chat: '+(data.provider||selectedChatProvider||'offline');
+  }catch(e){addFirstMsg(e.message||String(e),'agent');}
+}
+async function initFirstConsole(){try{renderFirstRuntime(await firstRequest('/health')); await refreshChatProviderStatus(); bindChatInputs();}catch(e){addFirstMsg(e.message||String(e),'agent');}}function showMainView(view){
+  const arena=document.getElementById('arenaView');
+  const arenaTab=document.getElementById('arenaTab');
+  const opsTab=document.getElementById('opsTab');
+  arena.classList.toggle('hidden',false);
+  arenaTab.classList.toggle('active',true);
+  opsTab.classList.toggle('active',false);
+}
+const sliders = [
+  ['player_power','Player power',100,2500,10], ['enemy_power','Enemy power',100,3000,10], ['fatigue','Fatigue',0,1,0.01], ['skill_score','Skill score',0,1,0.01], ['consecutive_losses','Consecutive losses',0,20,1], ['attempts_on_enemy','Attempts on enemy',0,40,1], ['best_completion_pct','Best completion %',0,100,1], ['upgrade_currency','Upgrade currency',0,5000,10], ['upgrade_cost','Upgrade cost',1,5000,10], ['recent_rewards_24h','Recent rewards 24h',0,10,1], ['training_affinity','Training affinity',0,1,0.01]
+];
+let presets={}, currentPreset='new_player_stuck', state={}, lastRecommendation=null, lastMatch=null, lastBenchmark=null, lastAutoRollout=null, timeline=[], scenarioHistory=[], debounce=null, benchmarkDebounce=null, locked=false;
+let selectedChatProvider='offline', chatSessionId='ui-'+Date.now();
+function setChatProvider(provider){ const btn=document.getElementById('chatProvider'+provider[0].toUpperCase()+provider.slice(1)); if(btn?.disabled){ addFirstMsg(btn.title||('Provider unavailable: '+provider),'agent'); return; } selectedChatProvider=provider; ['offline','ollama','gemini'].forEach(p=>document.getElementById('chatProvider'+p[0].toUpperCase()+p.slice(1))?.classList.toggle('active',p===provider)); document.getElementById('firstExplanationBadge').textContent='Chat: '+provider; }
+async function refreshChatProviderStatus(){try{const s=await firstRequest('/chat_provider_status'); const set=(id,ok,msg)=>{const b=document.getElementById(id); if(!b)return; b.disabled=!ok; b.title=msg||''; b.classList.toggle('disabled',!ok);}; set('chatProviderOffline',!!s.offline?.available,s.offline?.message); set('chatProviderOllama',!!s.ollama?.available,s.ollama?.message); set('chatProviderGemini',!!s.gemini?.available,s.gemini?.message); const current=document.getElementById('chatProvider'+selectedChatProvider[0].toUpperCase()+selectedChatProvider.slice(1)); if(current?.disabled){const next=['gemini','ollama','offline'].find(p=>!document.getElementById('chatProvider'+p[0].toUpperCase()+p.slice(1))?.disabled); if(next)setChatProvider(next);}}catch(e){}}function bindChatInputs(){['firstAgentInput','opsAgentInput'].forEach(id=>{const el=document.getElementById(id); if(!el||el.dataset.bound)return; el.dataset.bound='1'; el.addEventListener('keydown',ev=>{if(ev.key==='Enter'&&!ev.shiftKey){ev.preventDefault(); id==='opsAgentInput'?sendOpsAgentMessage():sendFirstAgentMessage();}});});}
+function currentRunContext(){ readState(); return {session_id:chatSessionId, chat_provider:selectedChatProvider, current_scenario:currentPreset, state, last_recommendation:lastRecommendation, last_match:lastMatch, last_benchmark:lastBenchmark, last_auto_rollout:lastAutoRollout, timeline, health:firstHealth}; }
+const finiteNumber=(x,fallback=null)=>{const n=Number(x); return Number.isFinite(n)?n:fallback;};
+const pct=x=>{const n=finiteNumber(x,null); return n===null?'--':`${Math.round(n*1000)/10}%`;};
+const esc=s=>String(s ?? '').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+const safeText=(value,fallback='--')=>{if(value===null||value===undefined)return fallback; const s=String(value); return (!s||s==='NaN'||s==='undefined'||s==='null')?fallback:esc(s);};
+const safeAction=(value,fallback='none')=>safeText(actionTitle(value),fallback);
+const sleep=ms=>new Promise(r=>setTimeout(r,ms/Number(document.getElementById('replay_speed')?.value||1)));
+async function api(path, options={}){ const r=await fetch(path,{headers:{'Content-Type':'application/json'},...options}); if(!r.ok) throw new Error(await r.text()); return r.json(); }
+function actionTitle(a){if(a===null||a===undefined)return 'none'; const s=String(a); return (!s||s==='NaN'||s==='undefined'||s==='null')?'none':s.replaceAll('_',' ')}
+function setWorkflowStatus(text){const el=document.getElementById('workflowStatus'); if(el) el.textContent=text;}
+function renderAgentTrace(trace){const box=document.getElementById('agentTrace'); if(!box)return; box.innerHTML=(trace&&trace.length)?trace.map(step=>`<div class="trace-step ${safeText(step.color,'')}"><span class="trace-num">${safeText(step.step)}</span><div><div class="trace-title">${safeText(step.component)}</div><div class="trace-body">${safeText(step.summary)}</div></div></div>`).join(''):'<span class="muted">No trace returned yet.</span>';}
+function renderFrustrationDerivation(d){const box=document.getElementById('frustrationDerivation'); if(!box)return; if(!d||!d.components){box.innerHTML='<span class="muted">No derivation returned yet.</span>'; return;} box.innerHTML=`<div class="metric"><strong>Derived score</strong><span>${pct(d.derived_frustration_score)}</span></div>`+d.components.map(c=>`<div class="frustration-row"><span>${esc(c.name)}</span><span>${pct(c.value)}</span><span>x${Number(c.weight).toFixed(2)}</span></div>`).join('')+`<p class="muted">${esc(d.formula_summary||'')}</p>`;}
+function makeControls(){ const c=document.getElementById('controls'); c.innerHTML=sliders.map(([id,label,min,max,step])=>`<div class="control"><label><span>${label}</span><strong id="v_${id}"></strong></label><input id="${id}" type="range" min="${min}" max="${max}" step="${step}" oninput="sliderChanged()"></div>`).join(''); }
+function readState(){ for(const [id] of sliders){ const el=document.getElementById(id); state[id]=Number(el.value); } state.new_player=document.getElementById('new_player').checked; state.advanced_player=document.getElementById('advanced_player').checked; state.scenario_name=state.scenario_name||currentPreset; state.temporary_power_boost_pct=state.temporary_power_boost_pct||0; state.enemy_power_modifier_pct=state.enemy_power_modifier_pct||0; state.elite_match_unlocked=!!state.elite_match_unlocked; state.day=state.day||0; return state; }
+function writeState(s){ state=JSON.parse(JSON.stringify(s)); for(const [id] of sliders){ document.getElementById(id).value=s[id]; document.getElementById('v_'+id).textContent=s[id]; } document.getElementById('new_player').checked=!!s.new_player; document.getElementById('advanced_player').checked=!!s.advanced_player; updateBattlePreview(null); }
+function sliderChanged(){ if(locked) return; readState(); for(const [id] of sliders) document.getElementById('v_'+id).textContent=state[id]; updateBattlePreview(null); setWorkflowStatus('Sliders changed: recalculating recommendation automatically. Next: click Play Next Match.'); clearTimeout(debounce); debounce=setTimeout(()=>recommendNow(false),230); }
+function renderScenarioButtons(){ const box=document.getElementById('scenarioButtons'); box.innerHTML=Object.keys(presets).map(name=>`<button class="${name===currentPreset?'active':''}" onclick="loadPreset('${name}')"><strong>${name.replaceAll('_',' ')}</strong><br><span class="muted">${shortPreset(name)}</span></button>`).join(''); }
+function shortPreset(name){return {cold_start:'no history',new_player_stuck:'repeated failure',underpowered_engaged:'needs progression',fatigued_player:'recovery pressure',advanced_bored:'needs challenge',high_reward_saturation:'economy guardrail',near_win_repeated_failure:'almost winning'}[name]||'custom'}
+function loadPreset(name){ currentPreset=name; timeline=[]; scenarioHistory=[]; lastRecommendation=null; lastMatch=null; lastBenchmark=null; lastAutoRollout=null; const autoBox=document.getElementById('autoRlPlanBody'); if(autoBox)autoBox.innerHTML='<div class="auto-summary">No automatic rollout has run yet.</div>'; writeState(presets[name]); renderScenarioButtons(); renderTimeline(); drawLineChart('timelineChart',[]); resetBattleVisuals(); setWorkflowStatus('Preset loaded: '+name.replaceAll('_',' ')+'. The RL recommendation is refreshing automatically.'); recommendNow(false); scheduleBenchmarkRefresh(); }
+function resetCurrent(){ loadPreset(currentPreset); }
+function buildEstimateSeries(features){
+  const f=features||{};
+  const win=finiteNumber(f.win_probability,.5), frustration=finiteNumber(f.frustration_score,.4), churn=finiteNumber(f.churn_risk,.3);
+  const shape=[-0.06,-0.025,0,0.025,0.05];
+  return shape.map((delta,i)=>({
+    step:i,
+    win:Math.max(0,Math.min(1,win+delta)),
+    frustration:Math.max(0,Math.min(1,frustration-delta*.45)),
+    churn:Math.max(0,Math.min(1,churn-delta*.55))
+  }));
+}
+function updateEstimateChart(features, append=false){
+  if(append){scenarioHistory.push({step:scenarioHistory.length,win:features.win_probability,frustration:features.frustration_score,churn:features.churn_risk}); scenarioHistory=scenarioHistory.slice(-20);}
+  const data=scenarioHistory.length>1?scenarioHistory:buildEstimateSeries(features);
+  drawLineChart('scenarioChart',data);
+}
+function scheduleBenchmarkRefresh(){clearTimeout(benchmarkDebounce); benchmarkDebounce=setTimeout(()=>runBenchmark(false),350);}
+function updateBattlePreview(f){
+  const s=state || {}; const hero=document.getElementById('hero'); const boss=document.getElementById('boss'); const root=document.documentElement;
+  const heroScale=Math.max(.86,Math.min(1.22,Number(s.player_power||800)/900));
+  const bossScale=Math.max(.88,Math.min(1.28,Number(s.enemy_power||1000)/1050));
+  root.style.setProperty('--hero-scale',heroScale.toFixed(2)); root.style.setProperty('--boss-scale',bossScale.toFixed(2));
+  hero.classList.toggle('tired',Number(s.fatigue||0)>0.65); hero.classList.toggle('boosted',Number(s.temporary_power_boost_pct||0)>0);
+  boss.classList.toggle('weakened',Number(s.enemy_power_modifier_pct||0)<0); boss.classList.toggle('raged',!!s.elite_match_unlocked || Number(s.enemy_power_modifier_pct||0)>0);
+  document.getElementById('heroPowerHud').textContent=`${Math.round(s.player_power||0)} power`;
+  document.getElementById('bossPowerHud').textContent=`${Math.round(s.enemy_power||0)} power`;
+  if(f){ document.getElementById('stageMessage').textContent=`Live state: win ${pct(f.win_probability)} - frustration ${pct(f.frustration_score)} - churn ${pct(f.churn_risk)}`; }
+}
+function resetBattleVisuals(){ document.getElementById('playerHp').style.width='100%'; document.getElementById('enemyHp').style.width='100%'; document.getElementById('playerHpText').textContent='100'; document.getElementById('enemyHpText').textContent='100'; document.getElementById('progressFill').style.width='0%'; document.getElementById('progressText').textContent='0%'; document.getElementById('stageMessage').textContent='Scenario loaded. Press Play next match to run the replay.'; clearEffects(); }
+function focusReplay(){ document.getElementById('battleCard')?.scrollIntoView({behavior:'smooth', block:'start'}); }
+function renderMetrics(f){ if(!f)return; document.getElementById('m_win').textContent=pct(f.win_probability); document.getElementById('m_frustration').textContent=pct(f.frustration_score); document.getElementById('m_churn').textContent=pct(f.churn_risk); document.getElementById('m_gap').textContent=(f.power_gap_pct*100).toFixed(1)+'%'; document.getElementById('m_cold').textContent=f.cold_start?'yes':'no'; document.getElementById('m_conf').textContent=pct(f.history_confidence); updateBattlePreview(f); }
+function renderScores(scores){
+  const rows=Object.entries(scores||{}).sort((a,b)=>b[1]-a[1]);
+  const box=document.getElementById('scoreRows');
+  box.innerHTML=rows.map(([a,v])=>{const width=v<0?0:Math.round(v*100); return `<div class="score-row"><span>${esc(actionTitle(a))}</span><div class="bar"><div class="fill" data-width="${width}" style="width:0%"></div></div><strong>${v<0?'blocked':v.toFixed(2)}</strong></div>`;}).join('');
+  requestAnimationFrame(()=>box.querySelectorAll('.fill').forEach(f=>{f.style.width=(f.dataset.width||0)+'%';}));
+}
+function pulseRecommendationBars(){
+  const nodes=document.querySelectorAll('#m_win,#m_frustration,#m_churn,#m_gap,#m_cold,#m_conf,#scoreRows .score-row,#scoreRows .fill,#expectedEffect .metric,#autoRlPlanBody .auto-step');
+  nodes.forEach(el=>{const target=el.classList.contains('metric')||el.classList.contains('score-row')||el.classList.contains('auto-step')||el.classList.contains('fill')?el:el.closest('.metric'); if(!target)return; target.classList.remove('flash'); void target.offsetWidth; target.classList.add('flash'); setTimeout(()=>target.classList.remove('flash'),1200);});
+}
+function renderExpected(e){ if(!e){document.getElementById('expectedEffect').innerHTML='';return;} document.getElementById('expectedEffect').innerHTML=`<div class="grid2"><div class="metric"><strong>Win</strong><span>${pct(e.win_probability_before)} to ${pct(e.win_probability_after)}</span></div><div class="metric"><strong>Churn</strong><span>${pct(e.churn_risk_before)} to ${pct(e.churn_risk_after)}</span></div><div class="metric"><strong>Frustration</strong><span>${pct(e.frustration_before)} to ${pct(e.frustration_after)}</span></div><div class="metric"><strong>Cost</strong><span>${Number(e.estimated_cost||0).toFixed(2)}</span></div></div>`; }
+function renderBlocked(blocks){ document.getElementById('blockedActions').innerHTML=(blocks&&blocks.length)?blocks.map(b=>`<div class="card"><span class="badge bad">${esc(b.action)}</span><p><strong>${esc(b.rule_id||'rule')}</strong> ${esc(b.reason)}</p></div>`).join(''):'<span class="badge good">No safety gate blocks</span>'; }
+function setOpsRaw(data){const el=document.getElementById('opsRawJson'); if(el) el.textContent=JSON.stringify(data,null,2);}
+function setOpsHeading(title){const el=document.getElementById('opsResultHeading'); if(el) el.textContent=title;}
+function renderOpsStatus(data){
+  renderGlobalStatus(data);
+  const el=document.getElementById('opsStatusbar'); if(!el||!data)return;
+  el.innerHTML=statusItems(data).map(([k,v])=>`<div class="ops-status-card"><strong>${esc(k)}</strong><span>${esc(v)}</span></div>`).join('');
+}
+function syncOpsConsole(source='recommendation'){
+  if(!lastRecommendation)return;
+  const rec=lastRecommendation, f=rec.derived_features||{}, expected=rec.expected_effect||{}, blocked=rec.blocked_actions||[];
+  const scores=Object.entries(rec.arena_action_scores||{}).sort((a,b)=>Number(b[1])-Number(a[1])).slice(0,6);
+  const trace=rec.agent_trace||[];
+  const served=rec.recommended_action||'none';
+  const maxScore=Math.max(1,...scores.map(([,v])=>Math.max(0,Number(v)||0)));
+  const scoreText=scores.map(([a,v])=>`${safeAction(a)}: ${finiteNumber(v,0).toFixed(4)}`).join('<br>');
+  const blockedText=blocked.length?blocked.map(b=>`${safeAction(b.action)}: ${safeText(b.reason,'Blocked by safety policy.')}`).join('<br>'):'No unsafe actions were blocked for this state.';
+  const pathRows=trace.length?trace.map(step=>`<div class="trace-step ${safeText(step.color,'')}"><span class="trace-num">${safeText(step.step)}</span><div><div class="trace-title">${safeText(step.component)}</div><div class="trace-body">${safeText(step.summary)}</div></div></div>`).join(''):[
+    ['1','Telemetry intake','Read player/enemy state from sliders or preset scenario.','cyan'],
+    ['2','Derived feature builder','Convert raw telemetry into win probability, frustration, churn risk, and history confidence.','cyan'],
+    ['3','RL Q-policy scoring',`Raw RL-preferred action before guardrails: ${actionTitle(served)}.`,'purple'],
+    ['4','RED safety/risk gate','Deterministic guardrails block risky actions and boost safer fallbacks. This is part of the same RL decision agent flow, not a second decision agent.','red'],
+    ['5','Served action + expected effect',`Served action: ${actionTitle(served)}.`,'green']
+  ].map(([num,title,body,color])=>`<div class="trace-step ${color}"><span class="trace-num">${num}</span><div><div class="trace-title">${esc(title)}</div><div class="trace-body">${esc(body)}</div></div></div>`).join('');
+  setOpsHeading('Live Arena Agent Path');
+  const last=document.getElementById('opsLastAction'); if(last) last.textContent='Synced from arena';
+  const box=document.getElementById('opsResults'); if(!box)return;
+  box.innerHTML=`
+    <div class="anchor-note"><strong>Connected to the experiment above.</strong><br>The cards below reflect the current arena sliders, served action, red safety gate, and latest match context automatically.</div>
+    <div class="goal-strip">
+      <div class="goal-card"><strong>Current preset</strong><span>${safeText((currentPreset||'custom').replaceAll('_',' '))}</span></div>
+      <div class="goal-card"><strong>Served action</strong><span class="badge good">${safeAction(served)}</span></div>
+      <div class="goal-card"><strong>Safety gate</strong><span>${blocked.length?blocked.length+' blocked action(s)':'No blocks on this state'}</span></div>
+    </div>
+    <div class="agent-flow">
+      <div class="flow-step policy"><span class="flow-num">1</span><div><div class="agent-tag"><span class="agent-dot"></span>RL Decision Agent</div><div class="flow-title">Arena state received</div><div class="flow-body">Win ${pct(f.win_probability)}; frustration ${pct(f.frustration_score)}; churn ${pct(f.churn_risk)}.</div></div><span class="flow-status"><span class="badge good">live</span></span></div>
+      <div class="flow-step policy"><span class="flow-num">2</span><div><div class="agent-tag"><span class="agent-dot"></span>RL Decision Agent</div><div class="flow-title">RL policy scored actions</div><div class="flow-body">${scoreText||'No scores returned.'}</div></div><span class="flow-status"><span class="badge">scored</span></span></div>
+      <div class="flow-step audit"><span class="flow-num">3</span><div><div class="agent-tag audit"><span class="agent-dot"></span>Red safety/risk gate</div><div class="flow-title">Red safety gate constrained serving</div><div class="flow-body">${blockedText}</div></div><span class="flow-status"><span class="badge ${blocked.length?'warn':'good'}">${blocked.length?'blocked':'clear'}</span></span></div>
+      <div class="flow-step mixed"><span class="flow-num">4</span><div><div class="agent-tag mixed"><span class="agent-dot"></span>RL policy + safety gate</div><div class="flow-title">Served action updates the cards</div><div class="flow-body">Expected win ${pct(expected.win_probability_before)} to ${pct(expected.win_probability_after)}; frustration ${pct(expected.frustration_before)} to ${pct(expected.frustration_after)}; churn ${pct(expected.churn_risk_before)} to ${pct(expected.churn_risk_after)}.</div></div><span class="flow-status"><span class="badge good">${safeAction(served)}</span></span></div>
+    </div>
+    <div class="experiment-grid">
+      <div class="scenario-card"><strong>Win probability</strong><span class="badge good">${pct(f.win_probability)}</span><p class="muted">Power gap: ${Number(f.power_gap_pct||0).toFixed(4)}</p></div>
+      <div class="scenario-card"><strong>Frustration</strong><span class="badge ${Number(f.frustration_score)>.65?'warn':'good'}">${pct(f.frustration_score)}</span><p class="muted">Derived from current telemetry.</p></div>
+      <div class="scenario-card"><strong>Churn risk</strong><span class="badge ${Number(f.churn_risk)>.55?'warn':'good'}">${pct(f.churn_risk)}</span><p class="muted">Refreshes after every arena experiment.</p></div>
+      <div class="scenario-card"><strong>Blocked actions</strong><span class="badge ${blocked.length?'warn':'good'}">${blocked.length}</span><p class="muted">Red gate is part of the same agent path.</p></div>
+      <div class="scenario-card match-context-card"><strong>Latest match context</strong>${renderOpsTimeline()}</div>
+    </div>
+    <h3>Single-agent trace from the arena</h3>
+    <div class="agent-path-card">${pathRows}</div>`;
+  setOpsRaw({synced_from_simulator:true,source,recommendation:rec,state,timeline});
+}function renderOpsTimeline(){
+  if(!timeline.length)return '<p class="muted">No match has been played yet. The recommendation cards above are live.</p>';
+  return `<div class="sim-strip">${timeline.slice(-4).map(r=>`<div class="sim-step"><strong><span>Step ${esc(r.step)}</span><span>${r.won===null?'state':(r.won?'won':'lost')}</span></strong><div class="action-name">${esc(actionTitle(r.action||'none'))}</div><div class="mini-bars"><div><label><span>Win</span><span class="metric-value">${pct(r.win)}</span></label><div class="mini-track"><div class="mini-fill" style="width:${Number(r.win||0)*100}%"></div></div></div><div><label><span>Frustration</span><span class="metric-value">${pct(r.frustration)}</span></label><div class="mini-track"><div class="mini-fill warn" style="width:${Number(r.frustration||0)*100}%"></div></div></div><div><label><span>Churn</span><span class="metric-value">${pct(r.churn)}</span></label><div class="mini-track"><div class="mini-fill bad" style="width:${Number(r.churn||0)*100}%"></div></div></div></div></div>`).join('')}</div>`;
+}
+async function opsRequest(path,options={}){const data=await api(path,options); setOpsRaw(data); return data;}
+async function opsHealthCheck(){const data=await opsRequest('/health'); renderOpsStatus(data); setOpsHeading('Health Check'); document.getElementById('opsResults').innerHTML=`<div class="grid3">${Object.entries(data).map(([k,v])=>`<div class="metric"><strong>${esc(k)}</strong><span style="font-size:14px">${esc(v)}</span></div>`).join('')}</div>`;}
+function displayValue(v){if(v===null||v===undefined||v===''||Number.isNaN(v))return 'N/A'; if(typeof v==='number')return Number.isFinite(v)?(Math.abs(v)<10?Number(v).toFixed(3):String(Math.round(v*1000)/1000)):'N/A'; if(typeof v==='boolean')return v?'yes':'no'; return esc(v);} 
+function metricCard(title,value){return `<div class="metric"><strong>${esc(title)}</strong><span>${displayValue(value)}</span></div>`;}
+function smallList(items){return (items&&items.length)?`<ul>${items.map(x=>`<li>${esc(typeof x==='string'?x:JSON.stringify(x))}</li>`).join('')}</ul>`:'<p class="muted">N/A</p>';}
+function actionScoreTable(title,values){const rows=Object.entries(values||{}).sort((a,b)=>Number(b[1])-Number(a[1])).slice(0,7); return `<h3>${esc(title)}</h3>`+(rows.length?`<table class="ops-mini-table"><thead><tr><th>Action</th><th>Value</th></tr></thead><tbody>${rows.map(([a,v])=>`<tr><td>${esc(actionTitle(a))}</td><td>${displayValue(v)}</td></tr>`).join('')}</tbody></table>`:'<p class="muted">N/A</p>');}
+async function opsRlPolicyTrace(){const data=await opsRequest('/rl_policy_trace'); setOpsHeading('RL Policy Trace'); const serving=data.serving_policy||{}, artifacts=data.model_artifact_status||{}, method=data.rl_training_method||{}, actions=data.action_space||{}, ens=data.ensemble_uncertainty||{}, safety=data.safety_mask||{}, evals=data.evaluation_metrics||{}, ope=evals.ope||{}, fallback=data.fallback_behavior||{}, ex=data.example_trace||{}; document.getElementById('opsResults').innerHTML=`<div class="anchor-note"><strong>Decision pipeline:</strong><br>${esc(data.decision_pipeline||'player telemetry -> state encoder -> value estimate -> safety mask -> final action')}</div><div class="grid3">${metricCard('Serving policy',serving.current_serving_policy)}${metricCard('Policy version',serving.policy_version)}${metricCard('Model type',serving.model_type)}${metricCard('Actions',actions.number_of_actions)}${metricCard('Ensemble size',ens.ensemble_size)}${metricCard('Uncertainty beta',ens.uncertainty_beta)}${metricCard('Gamma',method.gamma)}${metricCard('CQL alpha',method.cql_alpha)}${metricCard('BC weight',method.behavior_cloning_weight)}${metricCard('Final loss',method.final_training_loss)}${metricCard('TD loss',method.td_loss)}${metricCard('CQL penalty',method.cql_penalty)}${metricCard('BC loss',method.behavior_cloning_loss)}${metricCard('OPE IPS',ope.ips)}${metricCard('OPE SNIPS',ope.snips)}${metricCard('Effective sample size',ope.effective_sample_size)}${metricCard('Safety gate',safety.status)}${metricCard('Torch installed',artifacts.torch_installed)}</div><div class="experiment-grid"><div class="scenario-card"><strong>Model artifact status</strong><p>Q artifact: ${displayValue(artifacts.tabular_q_policy?.exists)} at <code>${esc(artifacts.tabular_q_policy?.path||'N/A')}</code></p><p>DQN artifact: ${displayValue(artifacts.conservative_dqn_artifact?.exists)} at <code>${esc(artifacts.conservative_dqn_artifact?.path||'N/A')}</code></p><p>DQN loaded: ${displayValue(artifacts.dqn_loaded)}${artifacts.dqn_load_error?'<br>Error: '+esc(artifacts.dqn_load_error):''}</p></div><div class="scenario-card"><strong>RL training method</strong><p>${esc(method.method||'N/A')}</p><p>Targeting: ${esc(method.targeting||'N/A')}</p><p>Objective: ${esc(method.objective||'N/A')}</p><p>Logged transitions: ${displayValue(method.train_episodes_or_logged_transitions)}</p></div><div class="scenario-card"><strong>Ensemble / uncertainty</strong><p>Scoring: ${esc(ens.scoring||'N/A')}</p><p>Uncertainty-aware active: ${displayValue(ens.uncertainty_aware_scoring_active)}</p><p>Fallback threshold: ${displayValue(ens.uncertainty_fallback_threshold)}</p></div><div class="scenario-card"><strong>Safety mask</strong><p>Deterministic safety mask active: ${displayValue(safety.deterministic_safety_mask_active)}</p><p>Shared by tabular and DQN policies: ${displayValue(safety.shared_with_tabular_and_dqn)}</p>${smallList(safety.reasons)}</div></div><h3>Action space</h3><p class="muted">${(actions.actions||[]).map(actionTitle).join(', ')||'N/A'}</p><h3>Evaluation metrics</h3><div class="grid3">${metricCard('OPE available',ope.available)}${metricCard('Clipped IPS',ope.clipped_ips)}${metricCard('Matched rows',ope.matched_rows)}${metricCard('Total rows',ope.total_rows)}${metricCard('OPE dataset',ope.dataset)}${metricCard('Avg reward',evals.latest_policy_metrics?.avg_reward)}</div><h3>Fallback behavior</h3><div class="experiment-grid"><div class="scenario-card"><strong>PyTorch missing</strong><p>${esc(fallback.if_torch_missing||'N/A')}</p></div><div class="scenario-card"><strong>DQN artifact missing</strong><p>${esc(fallback.if_dqn_artifact_missing||'N/A')}</p></div><div class="scenario-card"><strong>Metrics missing</strong><p>${esc(fallback.if_metrics_missing||'N/A')}</p></div></div><h3>Compact example trace</h3>${ex.available?`<div class="grid3">${metricCard('Raw top action',actionTitle(ex.raw_top_action))}${metricCard('After uncertainty penalty',actionTitle(ex.top_action_after_uncertainty_penalty))}${metricCard('Final served action',actionTitle(ex.served_action))}</div>${actionScoreTable('Raw Q-values',ex.raw_q_values)}${actionScoreTable('Served Q-values after safety mask',ex.served_q_values)}<h3>Blocked actions</h3>${smallList(ex.blocked_actions)}`:'<p class="muted">N/A</p>'}`;}
+async function opsPolicyMetrics(){const data=await opsRequest('/policy_metrics'); setOpsHeading('Policy Metrics'); const q=data.q_learning||{}, gate=data.safety_gate||{}; document.getElementById('opsResults').innerHTML=`<div class="grid3"><div class="metric"><strong>Q-learning avg reward</strong><span>${Number(q.avg_reward||0).toFixed(3)}</span></div><div class="metric"><strong>Retention rate</strong><span>${pct(q.retention_rate)}</span></div><div class="metric"><strong>Economy penalty</strong><span>${Number(q.economy_penalty_avg||0).toFixed(3)}</span></div><div class="metric"><strong>Safety gate</strong><span>${esc(gate.decision||'applied before serving')}</span></div></div><div class="anchor-note"><strong>How to read this:</strong> Q-learning is the learned arena policy. It is benchmarked separately from the deterministic red safety gate. The served action is the policy score after unsafe or economy-risky actions are blocked and safer recovery actions can be boosted.</div><div class="experiment-grid"><div class="scenario-card"><strong>Training signal</strong><p>Reward combines match outcome, retention/churn proxy, frustration, economy cost, and policy violations. Higher reward is better only when safety remains acceptable.</p></div><div class="scenario-card"><strong>RAG explanation layer</strong><p>LangChain/RAG retrieves policy docs and current run context for the chat. It explains the decision, but it does not overwrite Q-values or bypass safety rules.</p></div></div>`;}
+async function opsRunAudit(){const data=await opsRequest('/run_agent_audit',{method:'POST',body:'{}'}); setOpsHeading('Safety / Policy Audit'); document.getElementById('opsResults').innerHTML=`<div class="grid3"><div class="metric"><strong>Rollout decision</strong><span>${esc(data.rollout_decision)}</span></div><div class="metric"><strong>Human approval</strong><span>${esc(data.human_approval_required)}</span></div><div class="metric"><strong>Cloud LLM enabled</strong><span>${esc(data.use_gemini)}</span></div></div><div class="anchor-note"><strong>Audit scope:</strong> checks whether the current policy can be shown as a demo candidate. It looks at safety-gate coverage, rollback criteria, approval requirements, and whether explanations are grounded in retrieved docs instead of raw JSON dumps.</div><div class="experiment-grid"><div class="scenario-card"><strong>Policy guardrails</strong><p>Difficulty increases are blocked for frustrated or high-risk players. Resource grants require low economy balance, low recent rewards, and elevated churn risk.</p></div><div class="scenario-card"><strong>LangChain/RAG policy use</strong><p>The chat retrieves policy docs, dataset summaries, recent JSONL run events, and the current preset/results. This helps answer why questions without changing the simulator action.</p></div></div><h3>Rollback conditions</h3><ul>${(data.rollback_conditions||[]).map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`;}
+async function opsOpeMetrics(){const data=await opsRequest('/ope_metrics'); setOpsHeading('OPE Metrics'); document.getElementById('opsResults').innerHTML=data.available?`<div class="grid3"><div class="metric"><strong>SNIPS estimate</strong><span>${Number(data.snips_estimate||0).toFixed(3)}</span></div><div class="metric"><strong>Historical match rate</strong><span>${pct(data.match_rate)}</span></div><div class="metric"><strong>Effective sample size</strong><span>${Number(data.effective_sample_size||0).toFixed(1)}</span></div></div><div class="anchor-note"><strong>What OPE is doing:</strong> off-policy evaluation estimates how the learned policy would have performed against logged historical behavior. Match rate means how often historical actions match the candidate policy. Low effective sample size means treat the estimate as directional, not definitive.</div><div class="experiment-grid"><div class="scenario-card"><strong>Baseline source</strong><p>The benchmark baselines are simulated policies run through the same preset episodes: do nothing, random actions, hand-coded rule policy, and raw RL before safety gates.</p></div><div class="scenario-card"><strong>Deployable candidate</strong><p>Safety-gated RL is the candidate policy because it combines learned scores with deterministic guardrails before serving an action.</p></div></div>`:`<div class="anchor-note">${esc(data.message||'OPE metrics unavailable.')}</div>`;}
+async function opsRecentLogs(){const data=await opsRequest('/recent_logs?limit=8'); setOpsHeading('Recent Logs'); const rows=data.logs||[]; if(rows.length){document.getElementById('opsResults').innerHTML=`<div class="anchor-note">Source: ${esc(data.source||'local_jsonl')}</div><table class="ops-mini-table"><tbody>${rows.map(l=>`<tr><td><code>${esc(JSON.stringify(l).slice(0,520))}</code></td></tr>`).join('')}</tbody></table>`; return;} document.getElementById('opsResults').innerHTML=`<div class="grid3"><div class="metric"><strong>Source</strong><span>${esc(data.source||'n/a')}</span></div><div class="metric"><strong>Recommendations</strong><span>${esc((data.recommendations?.rows||data.recommendations?.logs||[]).length||0)}</span></div><div class="metric"><strong>Audits</strong><span>${esc((data.audits?.rows||data.audits?.logs||[]).length||0)}</span></div></div><pre>${esc(JSON.stringify(data,null,2))}</pre>`;}
+async function opsDatasetProfile(){const data=await opsRequest('/dataset_profile'); setOpsHeading('Dataset Profile'); const p=data.profile||{}; document.getElementById('opsResults').innerHTML=`<div class="grid3"><div class="metric"><strong>Rows</strong><span>${esc(p.rows||'n/a')}</span></div><div class="metric"><strong>Players</strong><span>${esc(p.players||'n/a')}</span></div><div class="metric"><strong>Source</strong><span>${esc(data.source||'repo')}</span></div></div><p class="muted">Frustration is derived from behavioral telemetry rather than supplied as a raw label.</p>`;}
+async function opsSyntheticSample(){const data=await opsRequest('/synthetic_episode_sample'); setOpsHeading('Synthetic Episode Sample'); const rows=data.rows||[]; const cols=Object.keys(rows[0]||{}).slice(0,7); document.getElementById('opsResults').innerHTML=rows.length?`<table class="ops-mini-table"><thead><tr>${cols.map(c=>`<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>${rows.slice(0,8).map(r=>`<tr>${cols.map(c=>`<td>${esc(r[c])}</td>`).join('')}</tr>`).join('')}</tbody></table>`:'<p class="muted">No synthetic sample rows available.</p>';}
+function opsClearResults(){setOpsHeading('Live RL Decision Agent Path'); syncOpsConsole('clear');}
+function addOpsMsg(text,cls=''){const log=document.getElementById('opsChatLog'); if(!log)return; const div=document.createElement('div'); div.className='first-msg '+cls; div.textContent=cls==='agent'?cleanAgentText(text):text; log.appendChild(div); log.scrollTop=log.scrollHeight;}
+async function sendOpsAgentMessage(){const input=document.getElementById('opsAgentInput'); const text=input.value.trim(); if(!text)return; addOpsMsg(text,'user'); input.value=''; try{const data=await firstRequest('/agent_message',{method:'POST',body:JSON.stringify({message:text,provider:selectedChatProvider,session_id:chatSessionId,context:currentRunContext()})}); addOpsMsg(data.response,'agent'); setOpsRaw(data);}catch(e){addOpsMsg(e.message||String(e),'agent');}}
+async function recommendNow(log=true){ readState(); setWorkflowStatus('Running RL policy scoring and red safety gate...'); const rec=await api('/arena/recommend',{method:'POST',body:JSON.stringify({state,request_id:'ui-'+Date.now()})}); lastRecommendation=rec; renderMetrics(rec.derived_features); renderScores(rec.arena_action_scores); renderExpected(rec.expected_effect); renderBlocked(rec.blocked_actions); renderAgentTrace(rec.agent_trace); renderFrustrationDerivation(rec.frustration_derivation); pulseRecommendationBars(); document.getElementById('servedAction').textContent=actionTitle(rec.recommended_action); document.getElementById('lastActionMini').textContent=actionTitle(rec.recommended_action); document.getElementById('architectureNote').textContent=rec.architecture_note; document.getElementById('rawResponse').textContent=JSON.stringify(rec,null,2); updateEstimateChart(rec.derived_features, log); renderTrajectory(); syncOpsConsole(log?'manual_refresh':'auto_refresh'); setWorkflowStatus('Recommendation ready: served action is '+actionTitle(rec.recommended_action)+'. Next: click Play Next Match.'); return rec; }
+function recommendationReason(rec){const f=rec?.derived_features||{}, action=rec?.recommended_action||'do_nothing'; if(action==='recommend_recovery_match'||action==='reduce_enemy_power')return `frustration ${pct(f.frustration_score)} and churn ${pct(f.churn_risk)} are still elevated, so the policy is trying to reduce pressure before the next fight.`; if(action==='recommend_training_match')return 'the player can still gain engagement/progression from a lower-risk training match.'; if(action==='offer_temporary_power_boost')return 'the player needs help in the next fight without a permanent economy grant.'; if(action==='grant_upgrade_currency')return 'economy pressure is high enough and the safety gate allowed a resource grant.'; if(action==='unlock_elite_match')return 'the player looks stable or under-challenged, so the policy can increase challenge.'; return 'the player looks stable enough that no intervention is currently needed.';}
+function renderManualMatchExplanation(match, appliedAction, nextRec){
+  const before=match?.derived_before||{}, after=match?.derived_after||{}, expected=nextRec?.expected_effect||{};
+  const blocks=nextRec?.blocked_actions||[];
+  const blockText=blocks.length?blocks.slice(0,3).map(b=>`${esc(actionTitle(b.action))}: ${esc(b.reason||'blocked by safety policy')}`).join('<br>'):'No safety blocks on the next recommendation.';
+  const box=document.getElementById('autoRlPlanBody'); if(!box)return;
+  box.innerHTML=`<div class="auto-summary"><strong>Manual match result and next recommendation:</strong><br>The just-played match now uses the same explanation cards as the automatic rollout. The RL policy recalculated from the updated telemetry before showing the next-match recommendation.</div><div class="auto-step-grid"><div class="auto-step"><strong><span>Manual match</span><span>${match?.won?'won':'lost'}</span></strong><p><b>Applied action:</b> ${esc(actionTitle(appliedAction||'none'))}</p><p><b>Outcome:</b> ${match?.won?'win':'loss'}, completion ${Number(match?.completion_pct||0).toFixed(1)}%.</p><p><b>Telemetry movement:</b> win ${pct(before.win_probability)} to ${pct(after.win_probability)}; frustration ${pct(before.frustration_score)} to ${pct(after.frustration_score)}; churn ${pct(before.churn_risk)} to ${pct(after.churn_risk)}.</p></div><div class="auto-step"><strong><span>Next recommendation</span><span>${esc(actionTitle(nextRec?.recommended_action||'none'))}</span></strong><p><b>Why:</b> ${esc(recommendationReason(nextRec))}</p><p><b>Expected next effect:</b> win ${pct(expected.win_probability_before)} to ${pct(expected.win_probability_after)}; frustration ${pct(expected.frustration_before)} to ${pct(expected.frustration_after)}; churn ${pct(expected.churn_risk_before)} to ${pct(expected.churn_risk_after)}.</p></div><div class="auto-step"><strong><span>Safety gate</span><span>${blocks.length} blocked</span></strong><p>${blockText}</p><p class="muted">These are deterministic guardrails applied before the RL action is served.</p></div></div>`;
+  pulseRecommendationBars();
+}
+async function applyAction(){ readState(); const action=(lastRecommendation&&lastRecommendation.recommended_action)||null; setWorkflowStatus('Applying served action to the simulator state...'); const res=await api('/arena/apply_action',{method:'POST',body:JSON.stringify({state,action,request_id:'ui-'+Date.now()})}); await animateActionEffect(action); writeState(res.state_after); document.getElementById('stageMessage').textContent=`Applied ${actionTitle(res.action)}. Next fight uses the updated state.`; setWorkflowStatus('Action applied: now click Play next match to see the battle response.'); await recommendNow(false); }
+async function playMatch(){ readState(); locked=true; focusReplay(); setWorkflowStatus('Applying the current served RL action, then playing the next match.'); document.getElementById('stageMessage').textContent='Preparing served action for the replay...'; try { if(!lastRecommendation) await recommendNow(false); const action=lastRecommendation?.recommended_action||null; if(action){ const applied=await api('/arena/apply_action',{method:'POST',body:JSON.stringify({state,action,request_id:'ui-'+Date.now()})}); await animateActionEffect(action); writeState(applied.state_after); readState(); } resetBattleVisuals(); document.getElementById('stageMessage').textContent='Starting replay from the updated state snapshot...'; const res=await api('/arena/play_match',{method:'POST',body:JSON.stringify({state,seed:Date.now()%100000,request_id:'ui-'+Date.now()})}); lastMatch=res; document.getElementById('rawResponse').textContent=JSON.stringify(res,null,2); await animateReplay(res.replay_events||[]); writeState(res.state_after); const after=res.derived_after; const matchNo=Math.floor(timeline.length/2)+1; timeline.push({step:'M'+matchNo+' before',match:matchNo,phase:'before',mode:'manual',win:res.derived_before.win_probability,frustration:res.derived_before.frustration_score,churn:res.derived_before.churn_risk,action:'before match',won:null,completion:0}); timeline.push({step:'M'+matchNo+' after',match:matchNo,phase:'after',mode:'manual',win:after.win_probability,frustration:after.frustration_score,churn:after.churn_risk,action:action||lastRecommendation?.recommended_action||'none',won:res.won,completion:res.completion_pct}); timeline=timeline.slice(-20); renderTimeline(); drawLineChart('timelineChart',timeline); setWorkflowStatus('Match complete: telemetry updated and the RL recommendation is recalculating for the next decision.'); const nextRec=await recommendNow(false); renderManualMatchExplanation(res, action, nextRec); } catch(e) { document.getElementById('stageMessage').textContent='Replay failed: '+(e.message||String(e)); setWorkflowStatus('Replay failed: '+(e.message||String(e))); throw e; } finally { locked=false; } }
+const MAX_AUTO_MATCHES=200;
+let autoRolloutCardPage=0, autoRolloutCardHtml=[];
+function updateAutoMatchLimitMessage(){
+  const el=document.getElementById('auto_matches'), label=document.getElementById('v_auto_matches'), err=document.getElementById('autoMatchError');
+  const raw=Number(el?.value);
+  const shown=Number.isFinite(raw)?Math.max(1,Math.round(raw)):10;
+  if(label)label.textContent=Math.min(MAX_AUTO_MATCHES,shown);
+  if(err)err.textContent=shown>MAX_AUTO_MATCHES?`Max ${MAX_AUTO_MATCHES} matches. Use 50-100 for smoother demos; 200 is the hard browser cap.`:(shown===MAX_AUTO_MATCHES?`${MAX_AUTO_MATCHES} is the hard cap; 50-100 is smoother for demos.`:'');
+  return shown<=MAX_AUTO_MATCHES;
+}
+function getAutoHorizon(){
+  const el=document.getElementById('auto_matches');
+  const value=Math.max(1,Math.round(Number(el?.value)||10));
+  if(value>MAX_AUTO_MATCHES){updateAutoMatchLimitMessage(); return null;}
+  if(el){el.value=value; const label=document.getElementById('v_auto_matches'); if(label)label.textContent=value;}
+  updateAutoMatchLimitMessage();
+  return value;
+}
+function actionCounts(steps){const counts={}; for(const s of steps||[]){const a=s.applied_action||'none'; counts[a]=(counts[a]||0)+1;} return Object.entries(counts).sort((a,b)=>b[1]-a[1]).map(([a,n])=>`${esc(actionTitle(a))} x${n}`).join(', ')||'none';}
+function formatRolloutStep(step){const before=step.telemetry_before_action||{}, after=step.telemetry_after_match||{}, outcome=step.match_outcome||{}, delta=step.actual_delta_after_match||{}, next=step.next_recommendation_after_match||{}; return `<div class="auto-step"><strong><span>Match ${esc(step.step)}</span><span>${outcome.won?'won':'lost'}</span></strong><p><b>Before match recommendation:</b> ${esc(actionTitle(step.recommended_action))}</p><p><b>Why before match:</b> ${esc(step.why||'Policy selected the highest safe served action.')}</p><p><b>Applied to match:</b> ${esc(actionTitle(step.applied_action))}</p><p><b>Match result:</b> ${outcome.won?'win':'loss'}, completion ${Number(outcome.completion_pct||0).toFixed(1)}%. Win ${pct(before.win_probability)} to ${pct(after.win_probability)}; frustration ${pct(before.frustration_score)} to ${pct(after.frustration_score)}; churn ${pct(before.churn_risk)} to ${pct(after.churn_risk)}.</p><p><b>Recommendation after match:</b> ${esc(actionTitle(next.recommended_action||'none'))}</p><p><b>Why after match:</b> ${esc(next.why||'The next recommendation was recalculated from the updated telemetry.')}</p><p class="muted">Actual delta: win ${Number(delta.win_probability||0).toFixed(3)}, frustration ${Number(delta.frustration||0).toFixed(3)}, churn ${Number(delta.churn_risk||0).toFixed(3)}. Blocks before: ${(step.blocked_actions||[]).length}; blocks after: ${(next.blocked_actions||[]).length}</p></div>`;}
+function formatRolloutGroup(group,start,end){
+  const first=group[0]||{}, last=group[group.length-1]||{}, before=first.telemetry_before_action||{}, after=last.telemetry_after_match||{}, outcomes=group.map(s=>s.match_outcome||{});
+  const wins=outcomes.filter(o=>o.won).length;
+  const avgCompletion=outcomes.length?outcomes.reduce((sum,o)=>sum+Number(o.completion_pct||0),0)/outcomes.length:0;
+  const blocked=group.reduce((sum,s)=>sum+(s.blocked_actions||[]).length,0);
+  const next=last.next_recommendation_after_match||{};
+  return `<div class="auto-step"><strong><span>Matches ${start}-${end}</span><span>${wins}/${group.length} won</span></strong><p><b>Dominant served actions:</b> ${actionCounts(group)}</p><p><b>Average completion:</b> ${avgCompletion.toFixed(1)}%. <b>Safety blocks:</b> ${blocked}.</p><p><b>Telemetry movement:</b> win ${pct(before.win_probability)} to ${pct(after.win_probability)}; frustration ${pct(before.frustration_score)} to ${pct(after.frustration_score)}; churn ${pct(before.churn_risk)} to ${pct(after.churn_risk)}.</p><p><b>Recommendation after this block:</b> ${esc(actionTitle(next.recommended_action||'none'))}</p><p class="muted">Grouped because this rollout is long; use the raw JSON panel for per-match detail.</p></div>`;
+}
+function scenarioForecastLabel(data){
+  const name=(data.initial_state?.scenario_name||currentPreset||'custom').replaceAll('_',' ');
+  if(name==='custom')return 'manual control setup';
+  return name;
+}
+function forecastNarrative(data){
+  const insight=data.final_rl_insight||{}, initial=data.initial_state||{}, final=data.final_state||{};
+  const action=actionTitle(insight.next_recommended_action||'do_nothing');
+  const startChurn=Number(data.steps?.[0]?.telemetry_before_action?.churn_risk ?? 0);
+  const finalChurn=Number(insight.final_churn_risk ?? 0);
+  const finalFrustration=Number(insight.final_frustration ?? 0);
+  const label=scenarioForecastLabel(data);
+  const direction=finalChurn<=startChurn?'lower':'higher';
+  const stability=finalChurn<.35&&finalFrustration<.45?'stable':(finalChurn>.55||finalFrustration>.65?'still at risk':'improving but not fully stable');
+  const reason=action==='do nothing'?'the forecasted player state is stable enough that another intervention would add cost without much expected benefit':`the next safest forecasted intervention is ${action}`;
+  return `Forecast for ${esc(label)}: after ${esc(data.rollout_horizon||0)} simulated future match cycles, churn is ${direction} than the starting trajectory and the player looks ${stability}. The final recommendation is ${esc(action)} because ${reason}. This forecast uses the current preset/manual slider telemetry and the fixed policy; it is a planning estimate, not retraining or a production churn prediction.`;
+}
+function rolloutCards(data){
+  const steps=data.steps||[], n=steps.length, cards=[];
+  cards.push(`<div class="auto-step"><strong><span>Step 0</span><span>initial state</span></strong><p>Starting from ${esc((data.initial_state?.scenario_name||currentPreset).replaceAll('_',' '))} with the current slider values.</p></div>`);
+  if(n<=20){steps.forEach(s=>cards.push(formatRolloutStep(s)));}
+  else{const size=n>100?20:10; for(let i=0;i<n;i+=size){cards.push(formatRolloutGroup(steps.slice(i,i+size),i+1,Math.min(n,i+size)));}}
+  cards.push(`<div class="auto-step"><strong><span>Final forecast</span><span>${esc(actionTitle(data.final_rl_insight?.next_recommended_action))}</span></strong><p><b>Predicted end state:</b> churn ${pct(data.final_rl_insight?.final_churn_risk)}, frustration ${pct(data.final_rl_insight?.final_frustration)}.</p><p>${forecastNarrative(data)}</p><p class="muted">Forecasting is scenario-specific: presets and manual slider changes create different simulated future trajectories.</p></div>`);
+  return cards;
+}
+function renderRolloutExplanation(data){const insight=data.final_rl_insight||{}; return `<div class="auto-summary"><strong>Auto rollout finished:</strong> ${esc(data.explanation||'No explanation returned.')}<br><span class="muted">Rollout horizon: ${esc(data.rollout_horizon||0)} matches; stabilized player: ${insight.stabilized_player?'yes':'no'}; blocked actions: ${esc(insight.blocked_action_count||0)}; final/next recommendation: ${esc(actionTitle(insight.next_recommended_action))}.</span></div>`;}
+function renderAutoRolloutPage(){
+  const box=document.getElementById('autoRlPlanCards'); if(!box)return;
+  const pageSize=5, total=Math.max(1,Math.ceil(autoRolloutCardHtml.length/pageSize));
+  autoRolloutCardPage=Math.max(0,Math.min(total-1,autoRolloutCardPage));
+  const start=autoRolloutCardPage*pageSize, visible=autoRolloutCardHtml.slice(start,start+pageSize).join('');
+  const pager=autoRolloutCardHtml.length>pageSize?`<div class="rollout-pager"><button aria-label="Previous rollout cards" onclick="autoRolloutPage(-1)" ${autoRolloutCardPage===0?'disabled':''}>&lt;</button><span>Cards ${start+1}-${Math.min(start+pageSize,autoRolloutCardHtml.length)} of ${autoRolloutCardHtml.length}</span><button aria-label="Next rollout cards" onclick="autoRolloutPage(1)" ${autoRolloutCardPage>=total-1?'disabled':''}>&gt;</button></div>`:'';
+  box.innerHTML=`${pager}<div class="auto-step-grid">${visible}</div>${pager}`;
+  pulseRecommendationBars();
+}
+function autoRolloutPage(delta){autoRolloutCardPage+=delta; renderAutoRolloutPage();}
+function renderAutoRlPlan(data){const box=document.getElementById('autoRlPlanBody'); if(!box)return; autoRolloutCardPage=0; autoRolloutCardHtml=rolloutCards(data); box.innerHTML=`${renderRolloutExplanation(data)}<div id="autoRlPlanCards"></div>`; renderAutoRolloutPage();}
+async function runAutoRlRollout(){
+  readState(); const horizon=getAutoHorizon(); if(!horizon){setWorkflowStatus(`Auto rollout limit exceeded: maximum is ${MAX_AUTO_MATCHES} matches.`); return;} locked=true; const btn=document.getElementById('autoRolloutBtn'); const original=btn?btn.innerHTML:'';
+  if(typeof focusReplay==='function')focusReplay();
+  setWorkflowStatus(`Auto RL rollout started: simulating ${horizon} match-policy cycles...`);
+  const autoBox=document.getElementById('autoRlPlanBody'); if(autoBox)autoBox.innerHTML=`<div class="auto-summary running"><strong>Auto rollout running...</strong><br>Simulating ${horizon} matches, applying the served RL action, updating telemetry, and recalculating the next recommendation after each match.</div>`;
+  if(btn){btn.disabled=true; btn.innerHTML='<span>Running...</span>';}
+  try{
+    const [data]=await Promise.all([api('/auto_rl_rollout',{method:'POST',body:JSON.stringify({state,horizon,seed:Date.now()%100000,request_id:'ui-auto-'+Date.now()})}), new Promise(r=>setTimeout(r,700))]);
+    lastAutoRollout=data; lastRecommendation=data.final_recommendation; document.getElementById('rawResponse').textContent=JSON.stringify(data,null,2);
+    for(const step of data.steps||[]){const m=Math.floor(timeline.length/2)+1; const before=step.telemetry_before_action||{}, after=step.telemetry_after_match||{}, outcome=step.match_outcome||{}; timeline.push({step:'Auto '+step.step+' before',match:m,phase:'before',mode:'auto',win:before.win_probability,frustration:before.frustration_score,churn:before.churn_risk,action:'before auto match',won:null,completion:0}); timeline.push({step:'Auto '+step.step+' after',match:m,phase:'after',mode:'auto',win:after.win_probability,frustration:after.frustration_score,churn:after.churn_risk,action:step.applied_action,won:outcome.won,completion:outcome.completion_pct});}
+    timeline=timeline.slice(-40); writeState(data.final_state); renderAutoRlPlan(data); renderTimeline(); drawLineChart('timelineChart',timeline);
+    if(data.final_recommendation){const rec=data.final_recommendation; renderMetrics(rec.derived_features); renderScores(rec.arena_action_scores); renderExpected(rec.expected_effect); renderBlocked(rec.blocked_actions); renderAgentTrace(rec.agent_trace); renderFrustrationDerivation(rec.frustration_derivation); document.getElementById('servedAction').textContent=actionTitle(rec.recommended_action); document.getElementById('lastActionMini').textContent=actionTitle(rec.recommended_action); document.getElementById('architectureNote').textContent=rec.architecture_note||data.architecture_note; pulseRecommendationBars();}
+    if(typeof syncOpsConsole==='function')syncOpsConsole('auto_rollout');
+    setWorkflowStatus(`Auto RL rollout finished: ${horizon} matches simulated. Final recommendation is ${actionTitle(data.final_rl_insight?.next_recommended_action)}.`);
+  }catch(e){if(autoBox)autoBox.innerHTML='<div class="auto-summary">Auto rollout failed: '+esc(e.message||String(e))+'</div>'; setWorkflowStatus('Auto rollout failed.'); throw e;}
+  finally{locked=false; if(btn){btn.disabled=false; btn.innerHTML=original;}}
+}
+function clearEffects(){ document.getElementById('effectsLayer').innerHTML=''; document.getElementById('battleStage').className='battle-stage'; document.getElementById('hero').classList.remove('lunge','dodge','hit'); document.getElementById('boss').classList.remove('hit','smash'); }
+function spawn(cls,text='',duration=2600){ const el=document.createElement('div'); el.className='effect '+cls; if(text) el.textContent=text; document.getElementById('effectsLayer').appendChild(el); setTimeout(()=>el.remove(),duration); return el; }
+async function animateActionEffect(action){
+  clearEffects();
+  const stage=document.getElementById('battleStage'); const hero=document.getElementById('hero'); const boss=document.getElementById('boss');
+  document.getElementById('lastActionMini').textContent=actionTitle(action);
+  const label=actionTitle(action);
+  document.getElementById('stageMessage').textContent=`Applying recommendation: ${label}`;
+  if(action==='offer_temporary_power_boost'){ hero.classList.add('boosted'); spawn('beam'); spawn('damage hero critical','Temporary boost active'); await sleep(1400); }
+  else if(action==='grant_upgrade_currency'){ spawn('coin c1'); spawn('coin c2'); spawn('coin c3'); spawn('damage boss critical','Upgrade currency granted'); await sleep(1400); }
+  else if(action==='recommend_recovery_match'){ spawn('orb o1'); spawn('orb o2'); spawn('orb o3'); spawn('damage hero critical','Recovery match recommended'); await sleep(1400); }
+  else if(action==='reduce_enemy_power'){ boss.classList.add('weakened'); spawn('impact boss-side'); spawn('damage boss critical','Boss power reduced'); await sleep(1400); }
+  else if(action==='unlock_elite_match'){ boss.classList.add('raged'); stage.classList.add('stage-shake'); spawn('impact boss-side'); spawn('damage boss critical','Elite match unlocked'); await sleep(1400); stage.classList.remove('stage-shake'); }
+  else if(action==='recommend_training_match'){ hero.classList.add('lunge'); spawn('slash critical'); spawn('damage boss critical','Training match queued'); await sleep(1200); hero.classList.remove('lunge'); }
+  else { spawn('damage boss','No intervention served'); await sleep(1100); }
+}
+async function animateReplay(events){
+  clearEffects();
+  const stage=document.getElementById('battleStage');
+  const hero=document.getElementById('hero');
+  const boss=document.getElementById('boss');
+  if(!events.length){ document.getElementById('stageMessage').textContent='No replay events returned.'; return; }
+  for(const ev of events){
+    clearEffects();
+    updateBars(ev);
+    document.getElementById('stageMessage').textContent=ev.message||'Replay event';
+    if(ev.type==='match_started'){
+      stage.classList.add('stage-shake'); await sleep(360); stage.classList.remove('stage-shake');
+    } else if(ev.type==='boost_proc'){
+      hero.classList.add('boosted'); spawn('beam'); spawn('damage hero critical','Boost active',1500); await sleep(850);
+    } else if(ev.type==='enemy_weakened'){
+      boss.classList.add('weakened'); spawn('impact boss-side'); spawn('damage boss critical','Enemy weakened',1500); await sleep(850);
+    } else if(ev.type==='fatigue_drag'){
+      hero.classList.add('tired'); spawn('damage hero','Fatigue drag',1500); await sleep(850);
+    } else if(ev.type==='player_attack'){
+      hero.classList.add('lunge'); boss.classList.add('hit'); spawn(ev.critical?'slash critical':'slash'); spawn('damage boss'+(ev.critical?' critical':''), `${ev.critical?'Critical ':''}-${ev.damage||0}`, 1400); await sleep(720); hero.classList.remove('lunge'); boss.classList.remove('hit');
+    } else if(ev.type==='dodge'){
+      hero.classList.add('dodge'); spawn('damage hero critical','Dodge',1200); await sleep(650); hero.classList.remove('dodge');
+    } else if(ev.type==='enemy_attack'){
+      boss.classList.add('smash'); hero.classList.add('hit'); stage.classList.add('stage-shake'); spawn('impact'); spawn('damage hero', `-${ev.damage||0}`, 1400); await sleep(760); boss.classList.remove('smash'); hero.classList.remove('hit'); stage.classList.remove('stage-shake');
+    } else if(ev.type==='match_result'){
+      stage.classList.add(ev.won?'victory-glow':'defeat-glow'); spawn('result-overlay '+(ev.won?'win':'loss'), ev.won?'Victory':'Loss', 1500); await sleep(1500);
+    } else if(ev.type==='state_update'){
+      const before=pct(ev.win_probability_before), after=pct(ev.win_probability_after);
+      document.getElementById('stageMessage').textContent=`Telemetry updated. Next win estimate ${before} -> ${after}.`;
+      await sleep(900);
+    } else {
+      await sleep(650);
+    }
+  }
+}
+function updateBars(ev){ if(ev.player_health!==undefined){ const v=Math.max(0,Math.min(100,Number(ev.player_health))); document.getElementById('playerHp').style.width=v+'%'; document.getElementById('playerHpText').textContent=Math.round(v); } if(ev.enemy_health!==undefined){ const v=Math.max(0,Math.min(100,Number(ev.enemy_health))); document.getElementById('enemyHp').style.width=v+'%'; document.getElementById('enemyHpText').textContent=Math.round(v); } if(ev.completion_pct!==undefined){ const v=Math.max(0,Math.min(100,Number(ev.completion_pct))); document.getElementById('progressFill').style.width=v+'%'; document.getElementById('progressText').textContent=Math.round(v)+'%'; } }
+function renderTimeline(){
+  document.getElementById('timeline').innerHTML=timeline.length?timeline.slice(-10).map(t=>`<div class="event"><strong>Telemetry ${t.step}</strong>: ${esc(actionTitle(t.action))}; ${t.won===null?'baseline before match':(t.won?'won':'lost')}; completion ${finiteNumber(t.completion,null)===null?'--':Math.round(finiteNumber(t.completion,0))+'%'}; win ${pct(t.win)}, frustration ${pct(t.frustration)}, churn ${pct(t.churn)}</div>`).join(''):'<div class="event">No matches played yet. Play a match to collect telemetry.</div>';
+}
+function chartTip(){let tip=document.getElementById('scenarioChartTooltip'); if(!tip){tip=document.createElement('div'); tip.id='scenarioChartTooltip'; tip.className='chart-tooltip'; document.body.appendChild(tip);} return tip;}
+function drawLineChart(id,data){
+  const svg=document.getElementById(id), w=520,h=178,p=30; if(!svg)return; if(!data.length){svg.setAttribute('viewBox',`0 0 ${w} ${h}`); const msg=id==='timelineChart'?'Play Next Match to populate actual telemetry.':'Move controls to populate policy estimates.'; svg.innerHTML=`<text x="${w/2}" y="${h/2}" fill="#94a3b8" font-size="13" text-anchor="middle">${msg}</text>`; return;}
+  const maxX=Math.max(1,data.length-1); const toX=i=>p+(i/maxX)*(w-2*p); const toY=v=>h-p-(Number.isFinite(Number(v))?Number(v):0)*(h-2*p-14);
+  const safeData=data.map(d=>({step:d.step,match:d.match,phase:d.phase,mode:d.mode,win:Number(d.win||0),frustration:Number(d.frustration||0),churn:Number(d.churn||0)}));
+  const path=k=>safeData.map((d,i)=>(i?'L':'M')+toX(i)+','+toY(d[k])).join(' ');
+  const labels={win:'Win probability',frustration:'Frustration',churn:'Churn risk'};
+  const circles=(k,color)=>safeData.map((d,i)=>`<circle cx="${toX(i)}" cy="${toY(d[k])}" r="3.6" fill="${color}"><title>${labels[k]} ${esc(d.step??i)}: ${pct(d[k])}</title></circle>`).join('');
+  const matchLines=id==='timelineChart'?safeData.map((d,i)=>d.phase==='before'?`<g><line x1="${toX(i)}" y1="${p}" x2="${toX(i)}" y2="${h-p}" stroke="#64748b" stroke-dasharray="3 4" opacity=".8"/><text class="match-label" x="${toX(i)+22}" y="${p+10}">${d.mode==='auto'?'Auto':'Match'} ${esc(d.match??'')}</text></g>`:'').join(''):'';
+  const controlLines=id==='scenarioChart'?safeData.map((d,i)=>{const label=i===0?'Preset':'Step '+(i+1); return `<g><line x1="${toX(i)}" y1="${p}" x2="${toX(i)}" y2="${h-p}" stroke="#64748b" stroke-dasharray="2 5" opacity=".34"/><text class="match-label" x="${toX(i)+4}" y="${p+10}">${label}</text></g>`;}).join(''):'';
+  const xLabels=id==='timelineChart'?safeData.map((d,i)=>`<text x="${toX(i)}" y="${h-7}" fill="#94a3b8" font-size="11" text-anchor="middle">${d.phase==='before'?'pre':'post'}</text>`).join(''):id==='scenarioChart'?safeData.map((d,i)=>`<text x="${toX(i)}" y="${h-7}" fill="#94a3b8" font-size="10" text-anchor="middle">${i===0?'preset':'step '+(i+1)}</text>`).join(''):'';
+  const hits=(id==='scenarioChart'||id==='timelineChart')?safeData.flatMap((d,i)=>['win','frustration','churn'].map(k=>`<circle class="chart-hit" cx="${toX(i)}" cy="${toY(d[k])}" r="9" fill="transparent" data-step="${esc(d.step??i)}" data-label="${labels[k]}" data-value="${pct(d[k])}"/>`)).join(''):'';
+  svg.setAttribute('viewBox',`0 0 ${w} ${h}`);
+  svg.innerHTML=`<line x1="${p}" y1="${h-p}" x2="${w-p}" y2="${h-p}" stroke="#334155"/><line x1="${p}" y1="${p}" x2="${p}" y2="${h-p}" stroke="#334155"/>${matchLines}${controlLines}<path d="${path('win')}" fill="none" stroke="#38bdf8" stroke-width="2.5"/><path d="${path('frustration')}" fill="none" stroke="#f59e0b" stroke-width="2.5"/><path d="${path('churn')}" fill="none" stroke="#ef4444" stroke-width="2.5"/>${circles('win','#38bdf8')}${circles('frustration','#f59e0b')}${circles('churn','#ef4444')}${xLabels}${hits}`;
+  if(id==='scenarioChart'||id==='timelineChart') {
+    const tip=chartTip();
+    svg.querySelectorAll('.chart-hit').forEach(node=>{
+      node.addEventListener('mousemove',ev=>{tip.innerHTML=`<strong>${node.dataset.label}</strong><br>${node.dataset.step}: ${node.dataset.value}`; tip.style.left=(ev.clientX+12)+'px'; tip.style.top=(ev.clientY+12)+'px'; tip.style.display='block';});
+      node.addEventListener('mouseleave',()=>{tip.style.display='none';});
+    });
+  }
+}
+function benchmarkLabel(name){return ({do_nothing:'Baseline: no intervention',random:'Baseline: random actions',rule_based:'Baseline: hand rules',raw_rl:'RL before safety gate',safety_gated_rl:'Candidate: safety-gated RL'}[name]||name.replaceAll('_',' '));}
+function benchmarkClass(name){return name==='safety_gated_rl'?'candidate-row':(name==='raw_rl'?'risk-row':'baseline-row');}
+function benchmarkDetail(r){ const name=String(r.policy_name||''); const source={do_nothing:'No intervention is applied; this is the minimum operational baseline.',random:'Actions are sampled at random; useful as a weak sanity-check baseline.',rule_based:'Hand-coded deterministic policy rules; this represents a non-learning baseline.',raw_rl:'Learned RL scores before the red safety gate blocks risky actions.',safety_gated_rl:'Deployable candidate: learned RL scores after deterministic safety and economy guardrails.'}[name]||'Policy replayed through the same benchmark simulator.'; return `${benchmarkLabel(name)}. Source: ${source} Win ${pct(r.win_rate)}, reward ${Number(r.avg_reward||0).toFixed(3)}, frustration ${pct(r.final_frustration)}, churn ${pct(r.final_churn_risk)}, cost ${Number(r.avg_cost||0).toFixed(3)}, violations ${r.policy_violations??0}.`; }
+function drawBenchmark(rows){ const svg=document.getElementById('benchmarkChart'), w=560,h=190,p=38; if(!svg)return; svg.setAttribute('viewBox',`0 0 ${w} ${h}`); if(!rows.length){svg.innerHTML=`<text x="${w/2}" y="${h/2}" fill="#94a3b8" font-size="13" text-anchor="middle">Benchmark will populate automatically.</text>`;return;} const bw=(w-2*p)/rows.length*0.58; const gap=(w-2*p)/rows.length; const colors={do_nothing:'#64748b',random:'#94a3b8',rule_based:'#38bdf8',raw_rl:'#f59e0b',safety_gated_rl:'#22c55e'}; svg.innerHTML=`<line x1="${p}" y1="${h-p}" x2="${w-p}" y2="${h-p}" stroke="#334155"/>`+rows.map((r,i)=>{const x=p+i*gap+gap*.2; const val=Number(r.win_rate||0); const bh=val*(h-2*p); const name=String(r.policy_name||''); return `<rect x="${x}" y="${h-p-bh}" width="${bw}" height="${bh}" rx="4" fill="${colors[name]||'#38bdf8'}"/><rect class="chart-hit benchmark-hit" x="${x-4}" y="${p}" width="${bw+8}" height="${h-2*p}" fill="transparent" data-policy="${esc(benchmarkLabel(name))}" data-detail="${esc(benchmarkDetail(r))}"/><text x="${x+bw/2}" y="${h-18}" fill="#94a3b8" font-size="11" text-anchor="middle">${esc(name.replaceAll('_',' ')).slice(0,14)}</text><text x="${x+bw/2}" y="${h-p-bh-5}" fill="#e5e7eb" font-size="12" text-anchor="middle">${pct(val)}</text>`}).join(''); const tip=chartTip(); svg.querySelectorAll('.benchmark-hit').forEach(node=>{node.addEventListener('mousemove',ev=>{tip.innerHTML=`<strong>${node.dataset.policy}</strong>${node.dataset.detail}`; tip.style.left=(ev.clientX+12)+'px'; tip.style.top=(ev.clientY+12)+'px'; tip.style.display='block';}); node.addEventListener('mouseleave',()=>{tip.style.display='none';});}); }
+function renderBenchmarkTable(rows){ const bestReward=Math.max(...rows.map(r=>Number(r.avg_reward||0))); document.getElementById('benchmarkTable').innerHTML=`<div class="benchmark-note"><strong>What this benchmark means:</strong> each bar replays the selected preset through the same fixed simulated episodes. Hover a bar or table row for the policy source and full metric explanation. The baselines are do nothing, random actions, and a hand-coded rule policy. Raw RL is the learned policy before guardrails. Safety-gated RL is the deployable candidate after deterministic safety rules block risky actions.</div><table><thead><tr><th>Policy</th><th>Role</th><th>Win</th><th>Reward</th><th>Frustration</th><th>Churn</th><th>Cost</th><th>Violations</th></tr></thead><tbody>${rows.map(r=>`<tr class="${benchmarkClass(r.policy_name)}" title="${esc(benchmarkDetail(r))}"><td>${esc(r.policy_name)}</td><td>${esc(benchmarkLabel(r.policy_name))}</td><td>${pct(r.win_rate)}</td><td>${Number(r.avg_reward).toFixed(3)}${Number(r.avg_reward||0)===bestReward?' best':''}</td><td>${pct(r.final_frustration)}</td><td>${pct(r.final_churn_risk)}</td><td>${Number(r.avg_cost).toFixed(3)}</td><td>${r.policy_violations}</td></tr>`).join('')}</tbody></table>`; }
+async function runBenchmark(showStatus=true){
+  const table=document.getElementById('benchmarkTable');
+  if(table)table.innerHTML='<div class="anchor-note">Benchmark loading...</div>';
+  if(showStatus)setWorkflowStatus('Running benchmark for '+currentPreset.replaceAll('_',' ')+' across policy baselines...');
+  try{
+    const payload={scenarios:[currentPreset],episodes_per_scenario:30,steps_per_episode:6,seed:42};
+    const data=await api('/arena/benchmark',{method:'POST',body:JSON.stringify(payload)});
+    const rows=data.aggregate||data.summary||data.rows||[];
+    drawBenchmark(rows); renderBenchmarkTable(rows); document.getElementById('rawResponse').textContent=JSON.stringify(data,null,2);
+    if(showStatus)setWorkflowStatus('Benchmark complete: selected scenario compared across do-nothing, random, rule-based, raw RL, and safety-gated RL.');
+  }catch(e){
+    drawBenchmark([]);
+    if(table)table.innerHTML='<div class="anchor-note bad">Benchmark failed: '+esc(e.message||String(e))+'</div>';
+    if(showStatus)setWorkflowStatus('Benchmark failed. See benchmark panel for details.');
+  }
+}
+window.runAutoRlRollout=runAutoRlRollout;
+function bindAutoRolloutButton(){const btn=document.getElementById('autoRolloutBtn'); if(btn&&!btn.dataset.bound){btn.dataset.bound='1'; btn.addEventListener('click',ev=>{ev.preventDefault(); runAutoRlRollout();});}}
+async function init(){ makeControls(); bindAutoRolloutButton(); const p=await api('/arena/presets'); presets=p.presets; renderScenarioButtons(); writeState(presets[currentPreset]||Object.values(presets)[0]); renderTimeline(); resetBattleVisuals(); await recommendNow(false); await runBenchmark(false); await loadDatasetSummary(); renderTrajectory(); setTimeout(()=>syncOpsConsole('initial_load'), 350); }
+init().catch(e=>{document.getElementById('rawResponse').textContent=e.stack||String(e);});
+initFirstConsole();
+</script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

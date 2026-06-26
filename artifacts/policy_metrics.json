@@ -1,0 +1,280 @@
+{
+  "rule": {
+    "policy_name": "rule",
+    "avg_reward": 0.42133250231212477,
+    "retention_rate": 0.56,
+    "avg_engagement_final": 0.5531709708480798,
+    "avg_frustration_final": 0.5194894477167968,
+    "economy_penalty_avg": 0.00130101258054618,
+    "reward_by_segment": {
+      "advanced": 0.4678980538825417,
+      "mid_skill": 0.4415573652647629,
+      "new": 0.35021686157400694
+    },
+    "segment_metrics": {
+      "advanced": {
+        "avg_reward": 0.4678980538825417,
+        "retention_rate": 0.6585365853658537,
+        "economy_penalty_avg": 0.0013818565400843883
+      },
+      "mid_skill": {
+        "avg_reward": 0.4415573652647629,
+        "retention_rate": 0.5882352941176471,
+        "economy_penalty_avg": 0.0010866261398176293
+      },
+      "new": {
+        "avg_reward": 0.35021686157400694,
+        "retention_rate": 0.4444444444444444,
+        "economy_penalty_avg": 0.001507537688442211
+      }
+    }
+  },
+  "bandit": {
+    "policy_name": "bandit",
+    "avg_reward": 0.28640000190293846,
+    "retention_rate": 0.47,
+    "avg_engagement_final": 0.32213521438645026,
+    "avg_frustration_final": 0.7708687891547513,
+    "economy_penalty_avg": 4.846526655896607e-06,
+    "reward_by_segment": {
+      "advanced": 0.6010292034518881,
+      "mid_skill": 0.1875127741499579,
+      "new": 0.0765179822326782
+    },
+    "segment_metrics": {
+      "advanced": {
+        "avg_reward": 0.6010292034518881,
+        "retention_rate": 0.7317073170731707,
+        "economy_penalty_avg": 0.0
+      },
+      "mid_skill": {
+        "avg_reward": 0.1875127741499579,
+        "retention_rate": 0.4117647058823529,
+        "economy_penalty_avg": 1.2573344509639564e-05
+      },
+      "new": {
+        "avg_reward": 0.0765179822326782,
+        "retention_rate": 0.32323232323232326,
+        "economy_penalty_avg": 0.0
+      }
+    },
+    "reward_delta_vs_baseline": -0.1349325004091863,
+    "new_player_reward_delta_vs_baseline": -0.27369887934132875,
+    "advanced_reward_delta_vs_baseline": 0.13313114956934646,
+    "economy_penalty_delta_vs_baseline": -0.0012961660538902834
+  },
+  "q_learning": {
+    "policy_name": "q_learning",
+    "avg_reward": 0.5626518094666012,
+    "retention_rate": 0.6966666666666667,
+    "avg_engagement_final": 0.7932151908591812,
+    "avg_frustration_final": 0.26068130547843066,
+    "economy_penalty_avg": 0.0015154994259471873,
+    "reward_by_segment": {
+      "advanced": 0.5651544128222654,
+      "mid_skill": 0.5706378023822276,
+      "new": 0.5504547713177922
+    },
+    "segment_metrics": {
+      "advanced": {
+        "avg_reward": 0.5651544128222654,
+        "retention_rate": 0.7073170731707317,
+        "economy_penalty_avg": 0.001845672575599583
+      },
+      "mid_skill": {
+        "avg_reward": 0.5706378023822276,
+        "retention_rate": 0.7310924369747899,
+        "economy_penalty_avg": 0.0015991471215351812
+      },
+      "new": {
+        "avg_reward": 0.5504547713177922,
+        "retention_rate": 0.6464646464646465,
+        "economy_penalty_avg": 0.0011270125223613596
+      }
+    },
+    "reward_delta_vs_baseline": 0.14131930715447644,
+    "new_player_reward_delta_vs_baseline": 0.20023790974378525,
+    "advanced_reward_delta_vs_baseline": 0.09725635893972373,
+    "economy_penalty_delta_vs_baseline": 0.0002144868454010073
+  },
+  "safety_gate": {
+    "decision": "approve",
+    "allow": true,
+    "limited": false,
+    "reject": false,
+    "reasons": [
+      "Overall reward improved with no material segment or economy regression."
+    ]
+  },
+  "dataset_split": {
+    "split_key": "player_id",
+    "seed": 2026,
+    "players": {
+      "train": 2240,
+      "validation": 480,
+      "test": 480
+    },
+    "rows": {
+      "train": 20478,
+      "validation": 4456,
+      "test": 4359
+    },
+    "leakage_checks": {
+      "train_validation_overlap": 0,
+      "train_test_overlap": 0,
+      "validation_test_overlap": 0
+    }
+  },
+  "off_policy_evaluation": {
+    "available": true,
+    "candidate_policy": "q_learning",
+    "dataset": "data/arena_liveops_episodes.csv:test_split",
+    "ips_estimate": 0.2694840446309303,
+    "snips_estimate": 0.3543401586044353,
+    "clipped_ips_estimate": 0.2694840446309303,
+    "match_rate": 0.42991511814636385,
+    "effective_sample_size": 1146.0784579224282,
+    "matched_rows": 1874,
+    "total_rows": 4359,
+    "avg_logged_reward": 0.32516003532920396,
+    "clip_weight": 10.0,
+    "ope_by_segment": {
+      "advanced": {
+        "snips_estimate": 0.4866690820969626,
+        "match_rate": 0.3682692307692308,
+        "effective_sample_size": 237.87385557819525,
+        "matched_rows": 383,
+        "total_rows": 1040
+      },
+      "mid_skill": {
+        "snips_estimate": 0.34375966380475315,
+        "match_rate": 0.5133287764866712,
+        "effective_sample_size": 459.10456386046906,
+        "matched_rows": 751,
+        "total_rows": 1463
+      },
+      "new": {
+        "snips_estimate": 0.298147979807035,
+        "match_rate": 0.39870689655172414,
+        "effective_sample_size": 449.4331418546892,
+        "matched_rows": 740,
+        "total_rows": 1856
+      }
+    },
+    "trace_examples": [
+      {
+        "player_id": "0",
+        "day": 0,
+        "segment": "new",
+        "logged_action": "decrease_difficulty",
+        "candidate_action": "decrease_difficulty",
+        "match": true,
+        "action_probability": 0.72,
+        "importance_weight": 1.3888888888888888,
+        "clipped_weight": 1.3888888888888888,
+        "reward": 0.098788,
+        "ips_contribution": 0.13720555555555555,
+        "clipped_ips_contribution": 0.13720555555555555
+      },
+      {
+        "player_id": "0",
+        "day": 1,
+        "segment": "new",
+        "logged_action": "decrease_difficulty",
+        "candidate_action": "decrease_difficulty",
+        "match": true,
+        "action_probability": 0.72,
+        "importance_weight": 1.3888888888888888,
+        "clipped_weight": 1.3888888888888888,
+        "reward": 0.330999,
+        "ips_contribution": 0.4597208333333333,
+        "clipped_ips_contribution": 0.4597208333333333
+      },
+      {
+        "player_id": "0",
+        "day": 2,
+        "segment": "new",
+        "logged_action": "decrease_difficulty",
+        "candidate_action": "do_nothing",
+        "match": false,
+        "action_probability": 0.72,
+        "importance_weight": 0.0,
+        "clipped_weight": 0.0,
+        "reward": 0.18307,
+        "ips_contribution": 0.0,
+        "clipped_ips_contribution": 0.0
+      },
+      {
+        "player_id": "0",
+        "day": 3,
+        "segment": "new",
+        "logged_action": "recommend_quest",
+        "candidate_action": "recommend_quest",
+        "match": true,
+        "action_probability": 0.1429,
+        "importance_weight": 6.997900629811057,
+        "clipped_weight": 6.997900629811057,
+        "reward": 0.334742,
+        "ips_contribution": 2.342491252624213,
+        "clipped_ips_contribution": 2.342491252624213
+      },
+      {
+        "player_id": "0",
+        "day": 4,
+        "segment": "new",
+        "logged_action": "decrease_difficulty",
+        "candidate_action": "do_nothing",
+        "match": false,
+        "action_probability": 0.72,
+        "importance_weight": 0.0,
+        "clipped_weight": 0.0,
+        "reward": 0.318776,
+        "ips_contribution": 0.0,
+        "clipped_ips_contribution": 0.0
+      },
+      {
+        "player_id": "0",
+        "day": 5,
+        "segment": "new",
+        "logged_action": "decrease_difficulty",
+        "candidate_action": "do_nothing",
+        "match": false,
+        "action_probability": 0.72,
+        "importance_weight": 0.0,
+        "clipped_weight": 0.0,
+        "reward": 0.295609,
+        "ips_contribution": 0.0,
+        "clipped_ips_contribution": 0.0
+      },
+      {
+        "player_id": "0",
+        "day": 6,
+        "segment": "new",
+        "logged_action": "recommend_quest",
+        "candidate_action": "do_nothing",
+        "match": false,
+        "action_probability": 0.72,
+        "importance_weight": 0.0,
+        "clipped_weight": 0.0,
+        "reward": 0.46377,
+        "ips_contribution": 0.0,
+        "clipped_ips_contribution": 0.0
+      },
+      {
+        "player_id": "0",
+        "day": 7,
+        "segment": "new",
+        "logged_action": "recommend_quest",
+        "candidate_action": "do_nothing",
+        "match": false,
+        "action_probability": 0.72,
+        "importance_weight": 0.0,
+        "clipped_weight": 0.0,
+        "reward": 0.373768,
+        "ips_contribution": 0.0,
+        "clipped_ips_contribution": 0.0
+      }
+    ],
+    "warnings": []
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "purpose": "Documents how frustration_score is derived from observable arena telemetry instead of treated as a raw label.",
+  "derived_target": "frustration_score",
+  "formula_summary": "0.15 + 0.28*progression_stall + 0.25*negative_power_gap + 0.18*fatigue_pressure + 0.14*loss_streak_pressure, clipped to [0, 1]",
+  "telemetry_inputs": [
+    {"field": "consecutive_losses", "meaning": "Number of recent failed attempts against current challenge."},
+    {"field": "attempts_on_enemy", "meaning": "Attempts on the current enemy/boss or equivalent challenge."},
+    {"field": "best_completion_pct", "meaning": "Best progress percentage before failure; near misses can indicate high effort and possible frustration."},
+    {"field": "fatigue", "meaning": "Temporary in-game fatigue/debuff pressure."},
+    {"field": "player_power", "meaning": "Current player strength after progression and temporary boosts."},
+    {"field": "enemy_power", "meaning": "Current challenge strength."},
+    {"field": "recent_rewards_24h", "meaning": "Recent reward exposure used for economy/risk guardrails."},
+    {"field": "training_affinity", "meaning": "How likely the player is to engage with safer optional/training content."},
+    {"field": "time_spent_on_enemy_sec", "meaning": "Synthetic dataset field: time committed to the current challenge."},
+    {"field": "failed_challenges_24h", "meaning": "Synthetic dataset field: recent challenge failures."},
+    {"field": "quit_after_failure", "meaning": "Synthetic dataset field: player left after a failure."},
+    {"field": "idle_time_after_loss_sec", "meaning": "Synthetic dataset field: hesitation or inactivity after losses."},
+    {"field": "near_miss_count", "meaning": "Synthetic dataset field: repeated close failures."},
+    {"field": "help_opens", "meaning": "Synthetic dataset field: player opened help/tutorial content."}
+  ],
+  "components": [
+    {"component": "progression_stall", "weight": 0.28, "description": "Repeated attempts, repeated losses, and poor completion indicate being stuck."},
+    {"component": "negative_power_gap", "weight": 0.25, "description": "Enemy effective power exceeds player effective power."},
+    {"component": "fatigue_pressure", "weight": 0.18, "description": "Fatigue/debuff makes the same challenge harder."},
+    {"component": "loss_streak_pressure", "weight": 0.14, "description": "Recent consecutive losses increase frustration pressure."}
+  ]
+}

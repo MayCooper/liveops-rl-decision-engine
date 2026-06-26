@@ -1,0 +1,12 @@
+.env
+.env.*
+!.env.example
+.venv/
+__pycache__/
+*.pyc
+*.log
+
+artifacts/*
+!artifacts/.gitkeep
+!artifacts/q_policy.json
+!artifacts/policy_metrics.json
