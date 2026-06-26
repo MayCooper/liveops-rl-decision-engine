@@ -1,8 +1,8 @@
 ---
 title: LiveOps RL Decision Engine
-emoji: game_die
+emoji: 🎮
 colorFrom: blue
-colorTo: cyan
+colorTo: blue
 sdk: docker
 app_port: 7860
 ---
