@@ -1,8 +1,8 @@
-﻿---
-title: LiveOps RL Decision Engine
-emoji: 🎮
+---
+title: "LiveOps RL Decision Engine"
+emoji: "🎮"
 colorFrom: blue
-colorTo: blue
+colorTo: indigo
 sdk: docker
 app_port: 7860
 ---
@@ -17,7 +17,13 @@ Interactive LiveOps RL decision engine with safety-gated recommendations, rollou
 - Hugging Face Space: https://huggingface.co/spaces/maycooper/liveops-rl-decision-engine
 - Live app: https://maycooper-liveops-rl-decision-engine.hf.space
 
-The hosted demo is designed to run in local deterministic mode by default. It does not require GCP, BigQuery, Gemini, or Ollama credentials to open the main simulator.
+The hosted demo runs in local deterministic mode by default. It does not require GCP, BigQuery, Gemini, Ollama, or paid API credentials to open the simulator.
+
+Hosted chat behavior:
+
+- Offline LangChain RAG fallback is enabled for the public demo.
+- Gemini is supported by the code path, but disabled on the public Space by default to avoid API-key cost exposure.
+- Ollama is local-only unless a separate remote Ollama server is configured. The public Space does not bundle or run local Ollama models.
 
 ## What This Demonstrates
 
@@ -30,7 +36,7 @@ This project is a compact end-to-end LiveOps decisioning demo:
 - Auto rollout mode simulates future match-policy cycles for 1-200 matches and summarizes long runs in paged cards.
 - Final rollout cards provide scenario-specific forecasts based on the current preset or manual slider state.
 - Benchmark charts compare safety-gated RL against do-nothing, random, rule-based, and raw-RL baselines.
-- A lightweight LangChain RAG assistant retrieves policy/game/evaluation context and combines it with current run state and chat memory.
+- A lightweight LangChain RAG assistant retrieves policy, game, evaluation, run-state, and memory context; hosted mode uses the offline fallback unless Gemini secrets are explicitly configured.
 
 ## Current UI
 
@@ -46,7 +52,7 @@ The main UI is served at `/` and combines the simulator with the operations cons
 - auto-rollout cards with previous/next pagination after five cards
 - final forecast cards for the selected scenario or manual state
 - policy, audit, OPE, dataset, and recent-log panels
-- agent chat backed by lightweight LangChain RAG retrieval and provider fallback
+- agent chat backed by lightweight LangChain RAG retrieval, session memory, and offline/Gemini/Ollama provider fallback
 
 ## RAG and LangChain Scope
 
@@ -64,9 +70,11 @@ It retrieves from:
 
 It uses LangChain integrations for:
 
-- Gemini: `langchain_google_genai.ChatGoogleGenerativeAI`
-- Ollama: `langchain_ollama.ChatOllama`
-- offline fallback: `langchain_core.runnables.RunnableLambda`
+- Offline hosted fallback: `langchain_core.runnables.RunnableLambda`
+- Gemini, optional and disabled by default on the public demo: `langchain_google_genai.ChatGoogleGenerativeAI`
+- Ollama, local-only unless a separate remote Ollama server is configured: `langchain_ollama.ChatOllama`
+
+The public Hugging Face demo intentionally defaults to offline RAG responses so it can be shared without exposing a paid Gemini key. Gemini can be enabled with Space secrets for private demos. Ollama should be treated as a local development option, not a free hosted Space dependency.
 
 The chat explains decisions and policy context. It does not choose player actions, update the Q-policy, bypass the safety gate, or rewrite training data.
 
@@ -89,7 +97,7 @@ In this mode the app uses repo-bundled data and artifacts:
 - `data/arena_dataset_profile.json`
 - `data/frustration_feature_dictionary.json`
 
-Optional cloud mode can use BigQuery and Gemini if environment variables and credentials are configured. The hosted public demo should not commit service-account JSON, API keys, tokens, or `.env` files.
+Optional cloud mode can use BigQuery and Gemini if environment variables and credentials are configured. The hosted public demo does not enable Gemini by default because public API keys can incur cost. Do not commit service-account JSON, API keys, tokens, or `.env` files.
 
 ## Local Setup
 
