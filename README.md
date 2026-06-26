@@ -1,3 +1,12 @@
+---
+title: "LiveOps RL Decision Engine"
+emoji: "🎮"
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+app_port: 7860
+---
+
 # LiveOps RL Decision Engine
 
 Interactive LiveOps RL decision engine with safety-gated recommendations, rollout forecasting, benchmark comparisons, and lightweight LangChain RAG policy analysis.
