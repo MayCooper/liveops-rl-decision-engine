@@ -1,4 +1,4 @@
----
+﻿---
 title: LiveOps RL Decision Engine
 emoji: 🎮
 colorFrom: blue
@@ -14,8 +14,8 @@ Interactive LiveOps RL decision engine with safety-gated recommendations, rollou
 ## Hosted Demo
 
 - GitHub: https://github.com/MayCooper/liveops-rl-decision-engine
-- Hugging Face Space: https://huggingface.co/spaces/MayCooper/liveops-rl-decision-engine
-- Live app URL, once the Space finishes building: https://MayCooper-liveops-rl-decision-engine.hf.space
+- Hugging Face Space: https://huggingface.co/spaces/maycooper/liveops-rl-decision-engine
+- Live app: https://maycooper-liveops-rl-decision-engine.hf.space
 
 The hosted demo is designed to run in local deterministic mode by default. It does not require GCP, BigQuery, Gemini, or Ollama credentials to open the main simulator.
 
@@ -153,7 +153,7 @@ To deploy manually:
 3. Push this repository to the Space Git remote:
 
 ```bash
-git remote add space https://huggingface.co/spaces/MayCooper/liveops-rl-decision-engine
+git remote add space https://huggingface.co/spaces/maycooper/liveops-rl-decision-engine
 git push space main
 ```
 
