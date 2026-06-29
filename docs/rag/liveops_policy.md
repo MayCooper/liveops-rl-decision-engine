@@ -19,3 +19,15 @@ Cold-start users should not receive elite difficulty. Reward-saturated players s
 ## Evaluation
 
 The system should be judged against do-nothing, random, rule-based, raw RL, and safety-gated RL baselines. A successful policy improves win rate and recovery while keeping economy cost and policy violations controlled.
+
+## Economy policy
+
+The economy policy prevents the RL decision agent from overusing resource grants or power boosts.
+
+Resource grants are blocked when recent reward exposure is high. Temporary power boosts are also blocked under high reward saturation because they function as value-bearing interventions. The benchmark reports average intervention cost and policy violations so that improved win rate is not accepted if it comes from excessive reward spending.
+
+## Cold-start policy
+
+Cold-start users have little or no behavioral history. The system should prefer safe onboarding actions, such as training matches or doing nothing, until there is enough history to estimate player pressure more confidently.
+
+Cold-start users should not receive elite difficulty, repeated grants, or aggressive difficulty changes. The simulator exposes `cold_start` and `history_confidence` so the UI can show why the served action becomes more conservative.

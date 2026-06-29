@@ -7,7 +7,7 @@ from typing import Any
 
 import numpy as np
 from fastapi import Body, FastAPI, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
 from app.agents import (
@@ -42,7 +42,7 @@ simulate_episode,
 step_player,
 )
 from app.policies import ConservativeDQNPolicy, QLearningPolicy
-from app.rag_chat import answer_agent_message, ollama_status
+from app.rag_chat import answer_agent_message, ollama_status, stream_agent_message
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 app = FastAPI(title="LiveOps Policy Lab", version="0.1.0")
@@ -206,6 +206,12 @@ def health() -> dict:
         "chat_provider": settings.CHAT_PROVIDER,
         "chat_providers": ["offline", "ollama", "gemini"],
         "ollama_model": settings.OLLAMA_MODEL,
+        "ollama_timeout_seconds": settings.OLLAMA_TIMEOUT_SECONDS,
+        "ollama_num_gpu": settings.OLLAMA_NUM_GPU,
+        "ollama_num_ctx": settings.OLLAMA_NUM_CTX,
+        "ollama_num_predict": settings.OLLAMA_NUM_PREDICT,
+        "ollama_keep_alive": settings.OLLAMA_KEEP_ALIVE,
+        "ollama_fast_known_answers": settings.OLLAMA_FAST_KNOWN_ANSWERS,
         "use_bigquery": settings.use_bigquery,
         "use_gemini": settings.use_gemini,
         "bigquery_configured": settings.bigquery_configured,
@@ -517,6 +523,68 @@ def agent_message(payload: dict) -> dict:
     except Exception as exc:
         logging.warning("Agent message logging failed: %s", exc)
     return result
+
+
+@app.post("/agent_message_stream")
+def agent_message_stream(payload: dict) -> StreamingResponse:
+    message = str(payload.get("message", "")).strip()
+    context = payload.get("context") or {}
+    provider = payload.get("provider") or context.get("chat_provider")
+    session_id = str(payload.get("session_id") or context.get("session_id") or "default")
+
+    def events():
+        final: dict[str, Any] | None = None
+        for event in stream_agent_message(message, context, provider=provider, session_id=session_id):
+            if event.get("type") == "done":
+                final = event
+            yield json.dumps(event) + "\n"
+        if final is not None:
+            try:
+                log_jsonl(
+                    {
+                        "event": "agent_message",
+                        "message": message[:300],
+                        "provider": final.get("provider"),
+                        "use_gemini": final.get("use_gemini", False),
+                        "sources": final.get("sources", []),
+                        "response": str(final.get("response", ""))[:800],
+                    }
+                )
+            except Exception as exc:
+                logging.warning("Agent stream logging failed: %s", exc)
+
+    return StreamingResponse(events(), media_type="application/x-ndjson")
+
+
+_AGENT_EVALS = [
+    {"question": "Explain how the RL model works", "must_include": ["q-learning", "safety", "chat"]},
+    {"question": "Why were actions blocked by the safety gate?", "must_include": ["safety", "blocked"]},
+    {"question": "What does the benchmark compare?", "must_include": ["benchmark", "raw rl", "safety-gated"]},
+    {"question": "Explain OPE match rate and effective sample size", "must_include": ["match rate", "effective sample"]},
+    {"question": "Where is run telemetry saved?", "must_include": ["telemetry", "jsonl"]},
+]
+
+
+@app.post("/agent_eval")
+def agent_eval(payload: dict = Body(default_factory=dict)) -> dict:
+    requested_limit = int(payload.get("limit", 3) or 3)
+    limit = max(1, min(5, requested_limit))
+    provider = payload.get("provider") or "offline"
+    context = payload.get("context") or {}
+    rows = []
+    for idx, item in enumerate(_AGENT_EVALS[:limit], start=1):
+        result = answer_agent_message(item["question"], context, provider=provider, session_id=f"agent-eval-{idx}")
+        response = str(result.get("response", ""))
+        lowered = response.lower()
+        checks = {term: term in lowered for term in item["must_include"]}
+        rows.append({
+            "question": item["question"],
+            "provider": result.get("provider"),
+            "passed": all(checks.values()),
+            "checks": checks,
+            "response": response[:1000],
+        })
+    return {"limit": limit, "max_limit": 5, "passed": sum(1 for row in rows if row["passed"]), "total": len(rows), "rows": rows}
 
 
 @app.get("/recent_local_logs")

@@ -37,6 +37,12 @@ class Settings:
     CHAT_PROVIDER: str = os.getenv("CHAT_PROVIDER", "offline").strip().lower()
     OLLAMA_BASE_URL: str = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434").rstrip("/")
     OLLAMA_MODEL: str = os.getenv("OLLAMA_MODEL", "llama3.1:8b")
+    OLLAMA_TIMEOUT_SECONDS: float = float(os.getenv("OLLAMA_TIMEOUT_SECONDS", "45"))
+    OLLAMA_NUM_GPU: int | None = int(os.getenv("OLLAMA_NUM_GPU")) if os.getenv("OLLAMA_NUM_GPU") not in {None, ""} else None
+    OLLAMA_NUM_CTX: int = int(os.getenv("OLLAMA_NUM_CTX", "2048"))
+    OLLAMA_NUM_PREDICT: int = int(os.getenv("OLLAMA_NUM_PREDICT", "220"))
+    OLLAMA_KEEP_ALIVE: str = os.getenv("OLLAMA_KEEP_ALIVE", "10m")
+    OLLAMA_FAST_KNOWN_ANSWERS: bool = _env_bool("OLLAMA_FAST_KNOWN_ANSWERS", default=True)
 
     POLICY_ARTIFACT_PATH: str = os.getenv("POLICY_ARTIFACT_PATH", "artifacts/q_policy.json")
     POLICY_METRICS_PATH: str = os.getenv("POLICY_METRICS_PATH", "artifacts/policy_metrics.json")

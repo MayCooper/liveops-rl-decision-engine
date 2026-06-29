@@ -514,17 +514,47 @@ function renderFirstRuntime(data){
   document.getElementById('firstRuntimeNote').textContent = note;
 }
 async function setFirstRuntimeMode(mode){try{const data=await firstRequest('/runtime_mode',{method:'POST',body:JSON.stringify({mode})}); renderFirstRuntime(data); await refreshChatProviderStatus(); setOpsRaw(data); if(data.runtime_warning)addFirstMsg(data.runtime_warning,'agent'); await runBenchmark(false);}catch(e){addFirstMsg(e.message||String(e),'agent');}}
-function cleanAgentText(text){return String(text??'').replace(/\*\*/g,'').replace(/^\s*\*\s+/gm,'- ').replace(/`([^`]+)`/g,'$1');} function addFirstMsg(text, cls='agent'){const log=document.getElementById('firstChatLog'); if(!log)return; const div=document.createElement('div'); div.className='first-msg '+cls; div.textContent=cls==='agent'?cleanAgentText(text):text; log.appendChild(div); log.scrollTop=log.scrollHeight;}
+function cleanAgentText(text){return String(text??'').replace(/\*\*/g,'').replace(/^\s*\*\s+/gm,'- ').replace(/`([^`]+)`/g,'$1');} function addFirstMsg(text, cls='agent'){const log=document.getElementById('firstChatLog'); if(!log)return null; const div=document.createElement('div'); div.className='first-msg '+cls; div.dataset.raw=String(text??''); div.textContent=cls==='agent'?cleanAgentText(text):text; log.appendChild(div); log.scrollTop=log.scrollHeight; return div;}
 function sendFirstQuick(text){document.getElementById('firstAgentInput').value=text; sendFirstAgentMessage();}
+async function streamAgentResponse(addMsg, rawSetter, badgeId, payload){
+  const target=addMsg('', 'agent');
+  let finalData=null;
+  try{
+    const r=await fetch('/agent_message_stream',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    if(!r.ok||!r.body)throw new Error(await r.text());
+    const reader=r.body.getReader(), decoder=new TextDecoder();
+    let buffer='', raw='';
+    while(true){
+      const {value,done}=await reader.read();
+      if(done)break;
+      buffer+=decoder.decode(value,{stream:true});
+      const lines=buffer.split('\n'); buffer=lines.pop()||'';
+      for(const line of lines){
+        if(!line.trim())continue;
+        const event=JSON.parse(line);
+        if(event.type==='token'){ raw+=event.text||''; if(target){target.dataset.raw=raw; target.textContent=cleanAgentText(raw); target.parentElement.scrollTop=target.parentElement.scrollHeight;} }
+        else if(event.type==='error'){ addMsg(event.text||event.provider_error||'Provider failed; offline fallback used.','agent'); }
+        else if(event.type==='done'){ finalData=event; }
+      }
+    }
+    if(finalData){ if(rawSetter)rawSetter(finalData); const badge=document.getElementById(badgeId); if(badge)badge.textContent='Chat: '+(finalData.provider||payload.provider||'offline'); }
+    return finalData;
+  }catch(e){
+    if(target)target.remove();
+    const data=await firstRequest('/agent_message',{method:'POST',body:JSON.stringify(payload)});
+    if(data.provider_error)addMsg(data.provider_error.replace('ollama chat failed; offline fallback used:','Ollama is unavailable, so I used Offline RAG instead. Details:'),'agent'); else if(data.gemini_error)addMsg(data.gemini_error,'agent');
+    addMsg(data.response,'agent');
+    if(rawSetter)rawSetter(data);
+    const badge=document.getElementById(badgeId); if(badge)badge.textContent='Chat: '+(data.provider||payload.provider||'offline');
+    return data;
+  }
+}
 async function sendFirstAgentMessage(){
   const input=document.getElementById('firstAgentInput'); const text=input.value.trim(); if(!text)return;
   addFirstMsg(text,'user');
   input.value='';
   try{
-    const data=await firstRequest('/agent_message',{method:'POST',body:JSON.stringify({message:text,provider:selectedChatProvider,session_id:chatSessionId,context:currentRunContext()})});
-    if(data.provider_error)addFirstMsg(data.provider_error.replace('ollama chat failed; offline fallback used:','Ollama is unavailable, so I used Offline RAG instead. Details:'),'agent'); else if(data.gemini_error)addFirstMsg(data.gemini_error,'agent');
-    addFirstMsg(data.response,'agent');
-    document.getElementById('firstExplanationBadge').textContent='Chat: '+(data.provider||selectedChatProvider||'offline');
+    await streamAgentResponse(addFirstMsg, null, 'firstExplanationBadge', {message:text,provider:selectedChatProvider,session_id:chatSessionId,context:currentRunContext()});
   }catch(e){addFirstMsg(e.message||String(e),'agent');}
 }
 async function initFirstConsole(){try{renderFirstRuntime(await firstRequest('/health')); await refreshChatProviderStatus(); bindChatInputs();}catch(e){addFirstMsg(e.message||String(e),'agent');}}function showMainView(view){
@@ -672,8 +702,8 @@ async function opsRecentLogs(){const data=await opsRequest('/recent_logs?limit=8
 async function opsDatasetProfile(){const data=await opsRequest('/dataset_profile'); setOpsHeading('Dataset Profile'); const p=data.profile||{}; document.getElementById('opsResults').innerHTML=`<div class="grid3"><div class="metric"><strong>Rows</strong><span>${esc(p.rows||'n/a')}</span></div><div class="metric"><strong>Players</strong><span>${esc(p.players||'n/a')}</span></div><div class="metric"><strong>Source</strong><span>${esc(data.source||'repo')}</span></div></div><p class="muted">Frustration is derived from behavioral telemetry rather than supplied as a raw label.</p>`;}
 async function opsSyntheticSample(){const data=await opsRequest('/synthetic_episode_sample'); setOpsHeading('Synthetic Episode Sample'); const rows=data.rows||[]; const cols=Object.keys(rows[0]||{}).slice(0,7); document.getElementById('opsResults').innerHTML=rows.length?`<table class="ops-mini-table"><thead><tr>${cols.map(c=>`<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>${rows.slice(0,8).map(r=>`<tr>${cols.map(c=>`<td>${esc(r[c])}</td>`).join('')}</tr>`).join('')}</tbody></table>`:'<p class="muted">No synthetic sample rows available.</p>';}
 function opsClearResults(){setOpsHeading('Live RL Decision Agent Path'); syncOpsConsole('clear');}
-function addOpsMsg(text,cls=''){const log=document.getElementById('opsChatLog'); if(!log)return; const div=document.createElement('div'); div.className='first-msg '+cls; div.textContent=cls==='agent'?cleanAgentText(text):text; log.appendChild(div); log.scrollTop=log.scrollHeight;}
-async function sendOpsAgentMessage(){const input=document.getElementById('opsAgentInput'); const text=input.value.trim(); if(!text)return; addOpsMsg(text,'user'); input.value=''; try{const data=await firstRequest('/agent_message',{method:'POST',body:JSON.stringify({message:text,provider:selectedChatProvider,session_id:chatSessionId,context:currentRunContext()})}); addOpsMsg(data.response,'agent'); setOpsRaw(data);}catch(e){addOpsMsg(e.message||String(e),'agent');}}
+function addOpsMsg(text,cls=''){const log=document.getElementById('opsChatLog'); if(!log)return null; const div=document.createElement('div'); div.className='first-msg '+cls; div.dataset.raw=String(text??''); div.textContent=cls==='agent'?cleanAgentText(text):text; log.appendChild(div); log.scrollTop=log.scrollHeight; return div;}
+async function sendOpsAgentMessage(){const input=document.getElementById('opsAgentInput'); const text=input.value.trim(); if(!text)return; addOpsMsg(text,'user'); input.value=''; try{await streamAgentResponse(addOpsMsg, setOpsRaw, 'firstExplanationBadge', {message:text,provider:selectedChatProvider,session_id:chatSessionId,context:currentRunContext()});}catch(e){addOpsMsg(e.message||String(e),'agent');}}
 async function recommendNow(log=true){ readState(); setWorkflowStatus('Running RL policy scoring and red safety gate...'); const rec=await api('/arena/recommend',{method:'POST',body:JSON.stringify({state,request_id:'ui-'+Date.now()})}); lastRecommendation=rec; renderMetrics(rec.derived_features); renderScores(rec.arena_action_scores); renderExpected(rec.expected_effect); renderBlocked(rec.blocked_actions); renderAgentTrace(rec.agent_trace); renderFrustrationDerivation(rec.frustration_derivation); pulseRecommendationBars(); document.getElementById('servedAction').textContent=actionTitle(rec.recommended_action); document.getElementById('lastActionMini').textContent=actionTitle(rec.recommended_action); document.getElementById('architectureNote').textContent=rec.architecture_note; document.getElementById('rawResponse').textContent=JSON.stringify(rec,null,2); updateEstimateChart(rec.derived_features, log); renderTrajectory(); syncOpsConsole(log?'manual_refresh':'auto_refresh'); setWorkflowStatus('Recommendation ready: served action is '+actionTitle(rec.recommended_action)+'. Next: click Play Next Match.'); return rec; }
 function recommendationReason(rec){const f=rec?.derived_features||{}, action=rec?.recommended_action||'do_nothing'; if(action==='recommend_recovery_match'||action==='reduce_enemy_power')return `frustration ${pct(f.frustration_score)} and churn ${pct(f.churn_risk)} are still elevated, so the policy is trying to reduce pressure before the next fight.`; if(action==='recommend_training_match')return 'the player can still gain engagement/progression from a lower-risk training match.'; if(action==='offer_temporary_power_boost')return 'the player needs help in the next fight without a permanent economy grant.'; if(action==='grant_upgrade_currency')return 'economy pressure is high enough and the safety gate allowed a resource grant.'; if(action==='unlock_elite_match')return 'the player looks stable or under-challenged, so the policy can increase challenge.'; return 'the player looks stable enough that no intervention is currently needed.';}
 function renderManualMatchExplanation(match, appliedAction, nextRec){
@@ -855,7 +885,7 @@ async function runBenchmark(showStatus=true){
   if(table)table.innerHTML='<div class="anchor-note">Benchmark loading...</div>';
   if(showStatus)setWorkflowStatus('Running benchmark for '+currentPreset.replaceAll('_',' ')+' across policy baselines...');
   try{
-    const payload={scenarios:[currentPreset],episodes_per_scenario:30,steps_per_episode:6,seed:42};
+    const payload={scenarios:[currentPreset],episodes_per_scenario:20,steps_per_episode:6,seed:42};
     const data=await api('/arena/benchmark',{method:'POST',body:JSON.stringify(payload)});
     const rows=data.aggregate||data.summary||data.rows||[];
     drawBenchmark(rows); renderBenchmarkTable(rows); document.getElementById('rawResponse').textContent=JSON.stringify(data,null,2);

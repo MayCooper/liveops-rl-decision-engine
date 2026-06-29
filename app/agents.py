@@ -30,14 +30,6 @@ def gemini_error_message(exc: Exception) -> str:
         return "Gemini network call failed. Check proxy settings and internet access. Deterministic fallback used."
     return "Gemini call failed; deterministic fallback used."
 
-def _gemini_client():
-    from google import genai
-
-    if settings.GEMINI_PROVIDER == "vertex":
-        return genai.Client(vertexai=True, project=settings.GCP_PROJECT, location=settings.GEMINI_LOCATION)
-    return genai.Client(api_key=settings.GEMINI_API_KEY)
-
-
 def _is_retryable_gemini_error(exc: Exception) -> bool:
     text = str(exc).lower()
     return "resource_exhausted" in text or "429" in text or "rate" in text or "timeout" in text
@@ -49,12 +41,12 @@ def generate_gemini_text(user_message: str, context: dict, max_context_chars: in
 
     safe_context = json.dumps(context, default=str)[:max_context_chars]
     prompt = f"{AUDIT_AGENT_INSTRUCTION}\n\nUser message:\n{user_message}\n\nProvided context JSON:\n{safe_context}"
-    client = _gemini_client()
+    from app.rag_chat import _gemini_model, _message_text
+
     last_exc = None
     for attempt in range(3):
         try:
-            response = client.models.generate_content(model=settings.GEMINI_MODEL_FAST, contents=prompt)
-            return (response.text or "").strip()
+            return _message_text(_gemini_model().invoke(prompt))
         except Exception as exc:
             last_exc = exc
             if attempt == 2 or not _is_retryable_gemini_error(exc):
@@ -92,12 +84,18 @@ def generate_audit_summary(report: PolicyAuditReport, metrics: dict) -> dict:
 def fallback_stress_scenarios() -> list[StressScenario]:
     """Deterministic scenarios used locally and as Gemini fallback."""
     scenarios = [
-        ("struggling_new_rewards", "New player, low skill, high frustration, repeated rewards.", {"segment": "new", "skill": 0.18, "frustration": 0.86, "engagement": 0.32, "churn_risk": 0.78, "economy_balance": 0.38, "recent_losses": 5, "recent_rewards": 4, "day": 6}, "bonus overuse and difficulty risk"),
-        ("bored_advanced", "Advanced player with high skill and low engagement.", {"segment": "advanced", "skill": 0.88, "frustration": 0.22, "engagement": 0.31, "churn_risk": 0.48, "economy_balance": 0.66, "recent_losses": 1, "recent_rewards": 1, "day": 8}, "under-challenge"),
-        ("mid_churn_low_economy", "Mid-skill player, high churn risk, low economy balance.", {"segment": "mid_skill", "skill": 0.52, "frustration": 0.63, "engagement": 0.35, "churn_risk": 0.71, "economy_balance": 0.18, "recent_losses": 3, "recent_rewards": 1, "day": 5}, "economy-sensitive intervention"),
-        ("stable_player", "Stable player likely needing no intervention.", {"segment": "mid_skill", "skill": 0.58, "frustration": 0.24, "engagement": 0.72, "churn_risk": 0.22, "economy_balance": 0.62, "recent_losses": 0, "recent_rewards": 1, "day": 4}, "over-intervention"),
-        ("reward_exposed", "Player with repeated reward exposure.", {"segment": "new", "skill": 0.42, "frustration": 0.49, "engagement": 0.5, "churn_risk": 0.47, "economy_balance": 0.3, "recent_losses": 2, "recent_rewards": 6, "day": 9}, "economy inflation"),
-        ("difficulty_risk", "High-frustration player where increasing difficulty is risky.", {"segment": "new", "skill": 0.36, "frustration": 0.81, "engagement": 0.44, "churn_risk": 0.74, "economy_balance": 0.57, "recent_losses": 4, "recent_rewards": 0, "day": 3}, "difficulty escalation"),
+        ("struggling_new_rewards", "New player, low skill, high frustration, repeated rewards.",
+         {"segment": "new", "skill": 0.18, "frustration": 0.86, "engagement": 0.32, "churn_risk": 0.78, "economy_balance": 0.38, "recent_losses": 5, "recent_rewards": 4, "day": 6}, "bonus overuse and difficulty risk"),
+        ("bored_advanced", "Advanced player with high skill and low engagement.",
+         {"segment": "advanced", "skill": 0.88, "frustration": 0.22, "engagement": 0.31, "churn_risk": 0.48, "economy_balance": 0.66, "recent_losses": 1, "recent_rewards": 1, "day": 8}, "under-challenge"),
+        ("mid_churn_low_economy", "Mid-skill player, high churn risk, low economy balance.",
+         {"segment": "mid_skill", "skill": 0.52, "frustration": 0.63, "engagement": 0.35, "churn_risk": 0.71, "economy_balance": 0.18, "recent_losses": 3, "recent_rewards": 1, "day": 5}, "economy-sensitive intervention"),
+        ("stable_player", "Stable player likely needing no intervention.",
+         {"segment": "mid_skill", "skill": 0.58, "frustration": 0.24, "engagement": 0.72, "churn_risk": 0.22, "economy_balance": 0.62, "recent_losses": 0, "recent_rewards": 1, "day": 4}, "over-intervention"),
+        ("reward_exposed", "Player with repeated reward exposure.",
+         {"segment": "new", "skill": 0.42, "frustration": 0.49, "engagement": 0.5, "churn_risk": 0.47, "economy_balance": 0.3, "recent_losses": 2, "recent_rewards": 6, "day": 9}, "economy inflation"),
+        ("difficulty_risk", "High-frustration player where increasing difficulty is risky.",
+         {"segment": "new", "skill": 0.36, "frustration": 0.81, "engagement": 0.44, "churn_risk": 0.74, "economy_balance": 0.57, "recent_losses": 4, "recent_rewards": 0, "day": 3}, "difficulty escalation"),
     ]
     return [StressScenario(name=n, description=d, player=PlayerState(**p), expected_risk=r) for n, d, p, r in scenarios]
 
@@ -117,22 +115,27 @@ def _deterministic_report(metrics: dict, scenarios: list[StressScenario], recomm
         finding = "Recommendation is consistent with scenario risk."
         mitigation = "Monitor normal rollout metrics."
         if player.segment == "new" and action == "increase_difficulty":
-            severity, finding, mitigation = "high", "Increasing difficulty for a frustrated new player can raise churn.", "Block this action for high-frustration new players."
+            severity, finding, mitigation = "high", "Increasing difficulty for a frustrated new player can raise churn.",
+            "Block this action for high-frustration new players."
             risky_segments.add("new")
             blocked_segments.add("new")
         elif action == "grant_bonus_resources" and player.recent_rewards >= 4:
-            severity, finding, mitigation = "medium", "Reward-heavy player received another resource grant.", "Cap resource grants and watch economy penalty."
+            severity, finding, mitigation = "medium", "Reward-heavy player received another resource grant.",
+            "Cap resource grants and watch economy penalty."
             risky_segments.add(player.segment)
         elif player.churn_risk > 0.65 and action == "do_nothing":
-            severity, finding, mitigation = "medium", "High churn-risk player received no intervention.", "Review churn-risk thresholds before rollout."
+            severity, finding, mitigation = "medium", "High churn-risk player received no intervention.",
+            "Review churn-risk thresholds before rollout."
             risky_segments.add(player.segment)
-        findings.append(PolicyAuditFinding(scenario=item["scenario"].name, recommendation=action, severity=severity, finding=finding, mitigation=mitigation))
+        findings.append(PolicyAuditFinding(scenario=item["scenario"].name,
+                                           recommendation=action, severity=severity, finding=finding, mitigation=mitigation))
 
     decision = gate["decision"]
     allowed = [s for s in ["new", "mid_skill", "advanced"] if s not in blocked_segments]
     return PolicyAuditReport(
         rollout_decision=decision,
-        rationale="Deterministic safety gate is the hard control. Agent audit highlights scenario-level risks without choosing actions.",
+        rationale="Deterministic safety gate is the hard control. " \
+        "Agent audit highlights scenario-level risks without choosing actions.",
         risky_segments=sorted(risky_segments),
         allowed_segments=allowed if decision != "reject" else [],
         blocked_segments=sorted(blocked_segments) if decision != "reject" else ["new", "mid_skill", "advanced"],

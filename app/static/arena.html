@@ -245,17 +245,47 @@ function renderFirstRuntime(data){
     : 'Deterministic fallback: bundled repo data, local policy artifacts, BigQuery/Gemini disabled for the demo flow.';
 }
 async function setFirstRuntimeMode(mode){try{renderFirstRuntime(await firstRequest('/runtime_mode',{method:'POST',body:JSON.stringify({mode})})); await refreshChatProviderStatus();}catch(e){addFirstMsg(e.message||String(e),'agent');}}
-function cleanAgentText(text){return String(text??'').replace(/\*\*/g,'').replace(/^\s*\*\s+/gm,'- ').replace(/`([^`]+)`/g,'$1');} function addFirstMsg(text, cls='agent'){const log=document.getElementById('firstChatLog'); if(!log)return; const div=document.createElement('div'); div.className='first-msg '+cls; div.textContent=cls==='agent'?cleanAgentText(text):text; log.appendChild(div); log.scrollTop=log.scrollHeight;}
+function cleanAgentText(text){return String(text??'').replace(/\*\*/g,'').replace(/^\s*\*\s+/gm,'- ').replace(/`([^`]+)`/g,'$1');} function addFirstMsg(text, cls='agent'){const log=document.getElementById('firstChatLog'); if(!log)return null; const div=document.createElement('div'); div.className='first-msg '+cls; div.dataset.raw=String(text??''); div.textContent=cls==='agent'?cleanAgentText(text):text; log.appendChild(div); log.scrollTop=log.scrollHeight; return div;}
 function sendFirstQuick(text){document.getElementById('firstAgentInput').value=text; sendFirstAgentMessage();}
+async function streamAgentResponse(addMsg, rawSetter, badgeId, payload){
+  const target=addMsg('', 'agent');
+  let finalData=null;
+  try{
+    const r=await fetch('/agent_message_stream',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    if(!r.ok||!r.body)throw new Error(await r.text());
+    const reader=r.body.getReader(), decoder=new TextDecoder();
+    let buffer='', raw='';
+    while(true){
+      const {value,done}=await reader.read();
+      if(done)break;
+      buffer+=decoder.decode(value,{stream:true});
+      const lines=buffer.split('\n'); buffer=lines.pop()||'';
+      for(const line of lines){
+        if(!line.trim())continue;
+        const event=JSON.parse(line);
+        if(event.type==='token'){ raw+=event.text||''; if(target){target.dataset.raw=raw; target.textContent=cleanAgentText(raw); target.parentElement.scrollTop=target.parentElement.scrollHeight;} }
+        else if(event.type==='error'){ addMsg(event.text||event.provider_error||'Provider failed; offline fallback used.','agent'); }
+        else if(event.type==='done'){ finalData=event; }
+      }
+    }
+    if(finalData){ if(rawSetter)rawSetter(finalData); const badge=document.getElementById(badgeId); if(badge)badge.textContent='Chat: '+(finalData.provider||payload.provider||'offline'); }
+    return finalData;
+  }catch(e){
+    if(target)target.remove();
+    const data=await firstRequest('/agent_message',{method:'POST',body:JSON.stringify(payload)});
+    if(data.provider_error)addMsg(data.provider_error.replace('ollama chat failed; offline fallback used:','Ollama is unavailable, so I used Offline RAG instead. Details:'),'agent'); else if(data.gemini_error)addMsg(data.gemini_error,'agent');
+    addMsg(data.response,'agent');
+    if(rawSetter)rawSetter(data);
+    const badge=document.getElementById(badgeId); if(badge)badge.textContent='Chat: '+(data.provider||payload.provider||'offline');
+    return data;
+  }
+}
 async function sendFirstAgentMessage(){
   const input=document.getElementById('firstAgentInput'); const text=input.value.trim(); if(!text)return;
   addFirstMsg(text,'user');
   input.value='';
   try{
-    const data=await firstRequest('/agent_message',{method:'POST',body:JSON.stringify({message:text,provider:selectedChatProvider,session_id:chatSessionId,context:currentRunContext()})});
-    if(data.provider_error)addFirstMsg(data.provider_error.replace('ollama chat failed; offline fallback used:','Ollama is unavailable, so I used Offline RAG instead. Details:'),'agent'); else if(data.gemini_error)addFirstMsg(data.gemini_error,'agent');
-    addFirstMsg(data.response,'agent');
-    document.getElementById('firstExplanationBadge').textContent='Chat: '+(data.provider||selectedChatProvider||'offline');
+    await streamAgentResponse(addFirstMsg, null, 'firstExplanationBadge', {message:text,provider:selectedChatProvider,session_id:chatSessionId,context:currentRunContext()});
   }catch(e){addFirstMsg(e.message||String(e),'agent');}
 }
 async function initFirstConsole(){try{renderFirstRuntime(await firstRequest('/health')); await refreshChatProviderStatus(); bindChatInputs();}catch(e){addFirstMsg(e.message||String(e),'agent');}}function showMainView(view){
@@ -456,7 +486,7 @@ function benchmarkClass(name){return name==='safety_gated_rl'?'candidate-row':(n
 function benchmarkDetail(r){ const name=String(r.policy_name||''); const source={do_nothing:'No intervention is applied; this is the minimum operational baseline.',random:'Actions are sampled at random; useful as a weak sanity-check baseline.',rule_based:'Hand-coded deterministic policy rules; this represents a non-learning baseline.',raw_rl:'Learned RL scores before the red safety gate blocks risky actions.',safety_gated_rl:'Deployable candidate: learned RL scores after deterministic safety and economy guardrails.'}[name]||'Policy replayed through the same benchmark simulator.'; return `${benchmarkLabel(name)}. Source: ${source} Win ${pct(r.win_rate)}, reward ${Number(r.avg_reward||0).toFixed(3)}, frustration ${pct(r.final_frustration)}, churn ${pct(r.final_churn_risk)}, cost ${Number(r.avg_cost||0).toFixed(3)}, violations ${r.policy_violations??0}.`; }
 function drawBenchmark(rows){ const svg=document.getElementById('benchmarkChart'), w=560,h=190,p=38; if(!svg)return; svg.setAttribute('viewBox',`0 0 ${w} ${h}`); if(!rows.length){svg.innerHTML=`<text x="${w/2}" y="${h/2}" fill="#94a3b8" font-size="13" text-anchor="middle">Benchmark will populate automatically.</text>`;return;} const bw=(w-2*p)/rows.length*0.58; const gap=(w-2*p)/rows.length; const colors={do_nothing:'#64748b',random:'#94a3b8',rule_based:'#38bdf8',raw_rl:'#f59e0b',safety_gated_rl:'#22c55e'}; svg.innerHTML=`<line x1="${p}" y1="${h-p}" x2="${w-p}" y2="${h-p}" stroke="#334155"/>`+rows.map((r,i)=>{const x=p+i*gap+gap*.2; const val=Number(r.win_rate||0); const bh=val*(h-2*p); const name=String(r.policy_name||''); return `<rect x="${x}" y="${h-p-bh}" width="${bw}" height="${bh}" rx="4" fill="${colors[name]||'#38bdf8'}"/><rect class="chart-hit benchmark-hit" x="${x-4}" y="${p}" width="${bw+8}" height="${h-2*p}" fill="transparent" data-policy="${esc(benchmarkLabel(name))}" data-detail="${esc(benchmarkDetail(r))}"/><text x="${x+bw/2}" y="${h-18}" fill="#94a3b8" font-size="11" text-anchor="middle">${esc(name.replaceAll('_',' ')).slice(0,14)}</text><text x="${x+bw/2}" y="${h-p-bh-5}" fill="#e5e7eb" font-size="12" text-anchor="middle">${pct(val)}</text>`}).join(''); const tip=chartTip(); svg.querySelectorAll('.benchmark-hit').forEach(node=>{node.addEventListener('mousemove',ev=>{tip.innerHTML=`<strong>${node.dataset.policy}</strong>${node.dataset.detail}`; tip.style.left=(ev.clientX+12)+'px'; tip.style.top=(ev.clientY+12)+'px'; tip.style.display='block';}); node.addEventListener('mouseleave',()=>{tip.style.display='none';});}); }
 function renderBenchmarkTable(rows){ const bestReward=Math.max(...rows.map(r=>Number(r.avg_reward||0))); document.getElementById('benchmarkTable').innerHTML=`<div class="benchmark-note"><strong>What this benchmark means:</strong> each bar replays the selected preset through the same fixed simulated episodes. Hover a bar or table row for the policy source and full metric explanation. The baselines are do nothing, random actions, and a hand-coded rule policy. Raw RL is the learned policy before guardrails. Safety-gated RL is the deployable candidate after deterministic safety rules block risky actions.</div><table><thead><tr><th>Policy</th><th>Role</th><th>Win</th><th>Reward</th><th>Frustration</th><th>Churn</th><th>Cost</th><th>Violations</th></tr></thead><tbody>${rows.map(r=>`<tr class="${benchmarkClass(r.policy_name)}" title="${esc(benchmarkDetail(r))}"><td>${esc(r.policy_name)}</td><td>${esc(benchmarkLabel(r.policy_name))}</td><td>${pct(r.win_rate)}</td><td>${Number(r.avg_reward).toFixed(3)}${Number(r.avg_reward||0)===bestReward?' best':''}</td><td>${pct(r.final_frustration)}</td><td>${pct(r.final_churn_risk)}</td><td>${Number(r.avg_cost).toFixed(3)}</td><td>${r.policy_violations}</td></tr>`).join('')}</tbody></table>`; }
-async function runBenchmark(){ setWorkflowStatus('Running benchmark across preset scenarios and policy baselines...'); const data=await api('/arena/benchmark',{method:'POST',body:JSON.stringify({episodes_per_scenario:30,steps_per_episode:6,seed:42})}); lastBenchmark=data; const rows=data.aggregate||data.summary||data.rows||[]; drawBenchmark(rows); renderBenchmarkTable(rows); document.getElementById('rawResponse').textContent=JSON.stringify(data,null,2); setWorkflowStatus('Benchmark complete: compare safety-gated RL against rule-based, raw RL, random, and do-nothing baselines.'); }
+async function runBenchmark(){ setWorkflowStatus('Running benchmark across preset scenarios and policy baselines...'); const data=await api('/arena/benchmark',{method:'POST',body:JSON.stringify({episodes_per_scenario:20,steps_per_episode:6,seed:42})}); lastBenchmark=data; const rows=data.aggregate||data.summary||data.rows||[]; drawBenchmark(rows); renderBenchmarkTable(rows); document.getElementById('rawResponse').textContent=JSON.stringify(data,null,2); setWorkflowStatus('Benchmark complete: compare safety-gated RL against rule-based, raw RL, random, and do-nothing baselines.'); }
 window.runAutoRlRollout=runAutoRlRollout;
 function bindAutoRolloutButton(){const btn=document.getElementById('autoRolloutBtn'); if(btn&&!btn.dataset.bound){btn.dataset.bound='1'; btn.addEventListener('click',ev=>{ev.preventDefault(); runAutoRlRollout();});}}
 async function init(){ makeControls(); bindAutoRolloutButton(); const p=await api('/arena/presets'); presets=p.presets; renderScenarioButtons(); writeState(presets[currentPreset]||Object.values(presets)[0]); renderTimeline(); resetBattleVisuals(); await recommendNow(false); }

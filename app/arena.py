@@ -57,7 +57,7 @@ ACTION_COST = {
     "unlock_elite_match": 0.02,
 }
 
-POLICY_RULES_PATH = Path("policies/policy_rules.json")
+POLICY_RULES_PATH = Path("docs/rag/policy_rules.json")
 
 
 class ArenaState(BaseModel):
@@ -114,8 +114,8 @@ class AutoRolloutRequest(BaseModel):
 
 class BenchmarkRequest(BaseModel):
     scenarios: list[str] | None = None
-    episodes_per_scenario: int = Field(default=30, ge=1, le=300)
-    steps_per_episode: int = Field(default=6, ge=1, le=20)
+    episodes_per_scenario: int = Field(default=20, ge=1, le=60)
+    steps_per_episode: int = Field(default=6, ge=1, le=10)
     seed: int = 42
 
 
